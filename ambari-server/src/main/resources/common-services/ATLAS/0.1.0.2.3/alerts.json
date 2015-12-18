@@ -33,7 +33,7 @@
         "description": "This host-level alert is triggered if the Metadata Server Web UI is unreachable.",
         "interval": 1,
         "scope": "ANY",
-        "enabled": true,
+        "enabled": false,
         "source": {
           "type": "WEB",
           "uri": {
