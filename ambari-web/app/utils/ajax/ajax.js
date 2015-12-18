@@ -2056,7 +2056,7 @@ var urls = {
     mock: '/data/users/privileges.json'
   },
   'router.user.privileges': {
-    real: '/privileges?PrivilegeInfo/principal_name={userName}&fields=*',
+    real: '/users/{userName}/privileges?fields=*',
     mock: '/data/users/privileges_{userName}.json'
   },
   'router.user.authorizations': {
