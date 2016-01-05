@@ -110,6 +110,7 @@ import org.apache.ambari.server.state.kerberos.KerberosDescriptorFactory;
 import org.apache.ambari.server.state.kerberos.KerberosIdentityDescriptor;
 import org.apache.ambari.server.state.kerberos.KerberosKeytabDescriptor;
 import org.apache.ambari.server.state.kerberos.KerberosPrincipalDescriptor;
+import org.apache.ambari.server.state.kerberos.KerberosPrincipalType;
 import org.apache.ambari.server.state.kerberos.KerberosServiceDescriptor;
 import org.apache.ambari.server.state.kerberos.VariableReplacementHelper;
 import org.apache.ambari.server.state.svccomphost.ServiceComponentHostServerActionEvent;
@@ -724,7 +725,7 @@ public class KerberosHelperImpl implements KerberosHelper {
 
           if (principalDescriptor != null) {
             principal = variableReplacementHelper.replaceVariables(principalDescriptor.getValue(), configurations);
-            principalType = principalDescriptor.getType().name().toLowerCase();
+            principalType = KerberosPrincipalType.translate(principalDescriptor.getType());
             principalConfiguration = variableReplacementHelper.replaceVariables(principalDescriptor.getConfiguration(), configurations);
           }
 
@@ -857,9 +858,16 @@ public class KerberosHelperImpl implements KerberosHelper {
                 String uniqueKey = String.format("%s|%s", principal, (keytabFile == null) ? "" : keytabFile);
 
                 if (!hostActiveIdentities.containsKey(uniqueKey)) {
+                  KerberosPrincipalType principalType = principalDescriptor.getType();
+
+                  // Assume the principal is a service principal if not specified
+                  if(principalType == null) {
+                    principalType = KerberosPrincipalType.SERVICE;
+                  }
+
                   KerberosPrincipalDescriptor resolvedPrincipalDescriptor =
                       new KerberosPrincipalDescriptor(principal,
-                          principalDescriptor.getType(),
+                          principalType,
                           variableReplacementHelper.replaceVariables(principalDescriptor.getConfiguration(), configurations),
                           variableReplacementHelper.replaceVariables(principalDescriptor.getLocalUsername(), configurations));
 
