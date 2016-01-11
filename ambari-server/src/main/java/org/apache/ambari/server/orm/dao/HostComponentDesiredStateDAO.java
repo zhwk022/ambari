@@ -25,6 +25,7 @@ import javax.persistence.NoResultException;
 import javax.persistence.TypedQuery;
 
 import org.apache.ambari.server.orm.RequiresSession;
+import org.apache.ambari.server.orm.entities.ExtensionEntity;
 import org.apache.ambari.server.orm.entities.HostComponentDesiredStateEntity;
 import org.apache.ambari.server.orm.entities.HostComponentDesiredStateEntityPK;
 import org.apache.ambari.server.orm.entities.HostEntity;
@@ -76,6 +77,20 @@ public class HostComponentDesiredStateDAO {
     query.setParameter("hostName", hostName);
 
     return daoUtils.selectSingle(query);
+  }
+
+  /**
+   * Retrieve the Host Component Desired States for the given extension.
+   *
+   * @param extension ExtensionEntity
+   * @return Return all of the Host Component States that match the criteria.
+   */
+  @RequiresSession
+  public List<HostComponentDesiredStateEntity> findByExtension(ExtensionEntity extension) {
+    final TypedQuery<HostComponentDesiredStateEntity> query = entityManagerProvider.get().createNamedQuery("HostComponentDesiredStateEntity.findByExtension", HostComponentDesiredStateEntity.class);
+    query.setParameter("extensionId", extension.getExtensionId());
+
+    return daoUtils.selectList(query);
   }
 
   @Transactional

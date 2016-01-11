@@ -23,6 +23,7 @@ import java.util.Map;
 
 import org.apache.ambari.server.AmbariException;
 import org.apache.ambari.server.controller.ServiceComponentHostResponse;
+import org.apache.ambari.server.orm.entities.ExtensionRepositoryVersionEntity;
 import org.apache.ambari.server.orm.entities.RepositoryVersionEntity;
 import org.apache.ambari.server.state.fsm.InvalidStateTransitionException;
 
@@ -38,6 +39,11 @@ public interface ServiceComponentHost {
    * Get the Cluster that this object maps to
    */
   public String getClusterName();
+
+  /**
+   * Returns whether or not the service to which this object maps comes from an extension
+   */
+  public boolean isExtensionService();
 
   /**
    * Get the Service this object maps to
@@ -219,5 +225,12 @@ public interface ServiceComponentHost {
    * @throws AmbariException if host is detached from the cluster
    */
   public RepositoryVersionEntity recalculateHostVersionState() throws AmbariException;
+
+  /**
+   * Changes extension host version state according to state of the components installed on the host.
+   * @return The Extension Repository Version Entity with that component in the host
+   * @throws AmbariException if host is detached from the cluster
+   */
+  public ExtensionRepositoryVersionEntity recalculateHostExtensionVersionState() throws AmbariException;
 
 }

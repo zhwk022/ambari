@@ -23,10 +23,16 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.ambari.server.state.PropertyDependencyInfo;
+import org.apache.ambari.server.state.PropertyInfo;
 import org.apache.ambari.server.state.PropertyInfo.PropertyType;
 import org.apache.ambari.server.state.ValueAttributesInfo;
 
 public class StackConfigurationResponse {
+
+  public StackConfigurationResponse(PropertyInfo info) {
+	  this(info.getName(), info.getValue(), info.getDescription(), info.getDisplayName() , info.getFilename(), info.isRequireInput(),
+		  info.getPropertyTypes(), info.getAttributesMap(), info.getPropertyValueAttributes(), info.getDependsOnProperties());
+  }
 
   /**
    * Stack configuration response.

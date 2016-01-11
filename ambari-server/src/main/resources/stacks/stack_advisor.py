@@ -439,7 +439,7 @@ class DefaultStackAdvisor(StackAdvisor):
   pass
 
   def isComponentUsingCardinalityForLayout(self, componentName):
-    return False
+    return self.getComponentAttribute(component, "use_cardinality_for_layout")
 
   def createValidationResponse(self, services, validationItems):
     """Returns array of Validation objects about issues with hostnames components assigned to"""
@@ -607,9 +607,7 @@ class DefaultStackAdvisor(StackAdvisor):
     return componentName in masters
 
   def isComponentNotValuable(self, component):
-    componentName = self.getComponentName(component)
-    service = self.getNotValuableComponents()
-    return componentName in service
+    return self.getComponentAttribute(component, "not_valuable")
 
   def getMinComponentCount(self, component):
     componentName = self.getComponentName(component)
@@ -643,9 +641,7 @@ class DefaultStackAdvisor(StackAdvisor):
     return self.getComponentAttribute(component, "component_name")
 
   def isComponentNotPreferableOnAmbariServerHost(self, component):
-    componentName = self.getComponentName(component)
-    service = self.getNotPreferableOnServerComponents()
-    return componentName in service
+    return self.getComponentAttribute(component, "not_preferable_on_server_components")
 
   def isHostSuitableForComponent(self, host, component):
     return not (self.isComponentNotPreferableOnAmbariServerHost(component) and self.isLocalHost(host))
@@ -654,9 +650,6 @@ class DefaultStackAdvisor(StackAdvisor):
     return []
 
   def getNotValuableComponents(self):
-    return []
-
-  def getNotPreferableOnServerComponents(self):
     return []
 
   def getCardinalitiesDict(self):

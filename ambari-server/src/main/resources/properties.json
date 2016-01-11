@@ -255,6 +255,87 @@
         "auto_deploy/enabled",
         "auto_deploy/location"
     ],
+    "ExtensionLink": [
+        "ExtensionLink/link_id",
+        "ExtensionLink/stack_name",
+        "ExtensionLink/stack_version",
+        "ExtensionLink/extension_name",
+        "ExtensionLink/extension_version",
+        "_"
+    ],
+    "Extension":[
+        "Extensions/extension_name",
+        "_"
+    ],
+    "ExtensionVersion":[
+        "Versions/extension_name",
+        "Versions/extension_version",
+        "Versions/min_upgrade_version",
+        "Versions/active",
+        "Versions/valid",
+        "Versions/extension-errors",
+        "Versions/parent_extension_version",
+        "Versions/config_types",
+        "Versions/upgrade_packs",
+        "_"
+    ],
+    "ExtensionService":[
+        "ExtensionServices/extension_name",
+        "ExtensionServices/extension_version",
+        "ExtensionServices/service_name",
+        "ExtensionServices/display_name",
+        "ExtensionServices/user_name",
+        "ExtensionServices/comments",
+        "ExtensionServices/service_version",
+        "ExtensionServices/config_types",
+        "ExtensionServices/service_check_supported",
+        "ExtensionServices/custom_commands",
+        "ExtensionServices/required_services",
+        "_"
+    ],
+    "ExtensionConfiguration":[
+        "ExtensionConfigurations/extension_name",
+        "ExtensionConfigurations/extension_version",
+        "ExtensionConfigurations/service_name",
+        "ExtensionConfigurations/property_name",
+        "ExtensionConfigurations/property_value",
+        "ExtensionConfigurations/property_value_attributes",
+        "ExtensionConfigurations/property_depends_on",
+        "ExtensionConfigurations/property_description",
+        "ExtensionConfigurations/property_display_name",
+        "ExtensionConfigurations/type",
+        "ExtensionConfigurations/final",
+        "ExtensionConfigurations/adding_forbidden",
+        "ExtensionConfigurations/do_not_extend",
+        "ExtensionConfigurations/property_type",
+        "_"
+    ],
+    "ExtensionServiceComponent":[
+        "ExtensionServiceComponents/extension_name",
+        "ExtensionServiceComponents/extension_version",
+        "ExtensionServiceComponents/service_name",
+        "ExtensionServiceComponents/component_name",
+        "ExtensionServiceComponents/display_name",
+        "ExtensionServiceComponents/component_category",
+        "ExtensionServiceComponents/is_client",
+        "ExtensionServiceComponents/is_master",
+        "ExtensionServiceComponents/cardinality",
+        "ExtensionServiceComponents/custom_commands",
+        "auto_deploy/enabled",
+        "auto_deploy/location",
+        "_"
+    ],
+    "ExtensionServiceComponentDependency" :[
+        "Dependencies/extension_name",
+        "Dependencies/extension_version",
+        "Dependencies/dependent_service_name",
+        "Dependencies/dependent_component_name",
+        "Dependencies/service_name",
+        "Dependencies/component_name",
+        "Dependencies/scope",
+        "auto_deploy/enabled",
+        "auto_deploy/location"
+    ],
     "DRFeed":[
         "Feed/name",
         "Feed/description",
@@ -458,10 +539,32 @@
         "StackConfigurationDependency/dependency_name",
         "_"
     ],
-  "KerberosDescriptor":[
-    "KerberosDescriptors/kerberos_descriptor_name",
-    "KerberosDescriptors/kerberos_descriptor_text",
-    "_"
-  ]
+    "ExtensionLevelConfiguration":[
+        "ExtensionLevelConfigurations/extension_name",
+        "ExtensionLevelConfigurations/extension_version",
+        "ExtensionLevelConfigurations/property_name",
+        "ExtensionLevelConfigurations/property_value",
+        "ExtensionLevelConfigurations/property_value_attributes",
+        "ExtensionLevelConfigurations/property_depends_on",
+        "ExtensionLevelConfigurations/property_description",
+        "ExtensionLevelConfigurations/type",
+        "ExtensionLevelConfigurations/final",
+        "ExtensionLevelConfigurations/property_type",
+        "_"
+    ],
+    "ExtensionConfigurationDependency":[
+        "ExtensionConfigurationDependency/extension_name",
+        "ExtensionConfigurationDependency/extension_version",
+        "ExtensionConfigurationDependency/service_name",
+        "ExtensionConfigurationDependency/property_name",
+        "ExtensionConfigurationDependency/dependency_type",
+        "ExtensionConfigurationDependency/dependency_name",
+        "_"
+    ],
+    "KerberosDescriptor":[
+        "KerberosDescriptors/kerberos_descriptor_name",
+        "KerberosDescriptors/kerberos_descriptor_text",
+        "_"
+    ]
 
 }

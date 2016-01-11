@@ -64,6 +64,9 @@ public interface ResourceProviderFactory {
   @Named("repositoryVersion")
   ResourceProvider getRepositoryVersionResourceProvider();
 
+  @Named("extensionRepositoryVersion")
+  ResourceProvider getExtensionRepositoryVersionResourceProvider();
+
   @Named("kerberosDescriptor")
   ResourceProvider getKerberosDescriptorResourceProvider(AmbariManagementController managementController,
                                                          Set<String> propertyIds,

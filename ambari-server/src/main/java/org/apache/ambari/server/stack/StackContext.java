@@ -22,6 +22,8 @@ import org.apache.ambari.server.api.services.AmbariMetaInfo;
 import org.apache.ambari.server.metadata.ActionMetadata;
 import org.apache.ambari.server.orm.dao.MetainfoDAO;
 import org.apache.ambari.server.orm.entities.MetainfoEntity;
+import org.apache.ambari.server.state.stack.AbstractLatestRepoCallable;
+import org.apache.ambari.server.state.stack.LatestExtensionRepoCallable;
 import org.apache.ambari.server.state.stack.LatestRepoCallable;
 import org.apache.ambari.server.state.stack.OsFamily;
 
@@ -111,7 +113,18 @@ public class StackContext {
    */
   public void registerRepoUpdateTask(String url, StackModule stack) {
     repoUpdateExecutor.addTask(new LatestRepoCallable(url,
-        new File(stack.getStackDirectory().getRepoDir()), stack.getModuleInfo(), osFamily));
+        new File(stack.getStackDirectory().getRepoDir()), osFamily, stack.getModuleInfo()));
+  }
+
+  /**
+   * Register a task to obtain the latest repo url from an external location.
+   *
+   * @param url        external repo information URL
+   * @param extension  extension module
+   */
+  public void registerRepoUpdateTask(String url, ExtensionModule extension) {
+    repoUpdateExecutor.addTask(new LatestExtensionRepoCallable(url,
+        new File(extension.getExtensionDirectory().getRepoDir()), osFamily, extension.getModuleInfo()));
   }
 
   /**
@@ -139,7 +152,7 @@ public class StackContext {
     /**
      * Registered tasks
      */
-    private Collection<LatestRepoCallable> tasks = new ArrayList<LatestRepoCallable>();
+    private Collection<AbstractLatestRepoCallable> tasks = new ArrayList<AbstractLatestRepoCallable>();
 
     /**
      * Task futures
@@ -161,7 +174,7 @@ public class StackContext {
      *
      * @param task task to be added
      */
-    public void addTask(LatestRepoCallable task) {
+    public void addTask(AbstractLatestRepoCallable task) {
       tasks.add(task);
     }
 
@@ -169,7 +182,7 @@ public class StackContext {
      * Execute all tasks.
      */
     public void execute() {
-      for (LatestRepoCallable task : tasks) {
+      for (AbstractLatestRepoCallable task : tasks) {
         futures.add(executor.submit(task));
       }
       executor.shutdown();

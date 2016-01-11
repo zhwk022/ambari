@@ -285,6 +285,9 @@ public class PropertyHelper {
    * @return true if the given property id contains any replacement arguments
    */
   public static boolean containsArguments(String propertyId) {
+    if (propertyId == null) {
+	return false;
+    }
     if (!propertyId.contains("$")) {
       return false;
     }
@@ -481,6 +484,8 @@ public class PropertyHelper {
           mapper.readValue(ClassLoader.getSystemResourceAsStream(filename),
               new TypeReference<Map<Resource.InternalType, Map<Resource.InternalType, String>>>() {});
 
+      printKeyPropertyIdsInternal(map, "internal");
+
       Map<Resource.InternalType, Map<Resource.Type, String>> returnMap =
           new HashMap<Resource.InternalType, Map<Resource.Type, String>>();
 
@@ -489,14 +494,39 @@ public class PropertyHelper {
         Map<Resource.Type, String> innerMap = new HashMap<Resource.Type, String>();
 
         for (Map.Entry<Resource.InternalType, String> entry1 : entry.getValue().entrySet()) {
-          innerMap.put(Resource.Type.values()[entry1.getKey().ordinal()], entry1.getValue());
+          innerMap.put(Resource.Type.valueOf(entry1.getKey().name()), entry1.getValue());
         }
         returnMap.put(entry.getKey(), innerMap);
       }
+      printKeyPropertyIds(returnMap, "final");
       return returnMap;
     } catch (IOException e) {
       throw new IllegalStateException("Can't read properties file " + filename, e);
     }
+  }
+
+  public static void printKeyPropertyIdsInternal(Map<Resource.InternalType, Map<Resource.InternalType, String>> ids, String type) {
+      System.out.println("TIM PRINT START " + type);
+      for (Map.Entry<Resource.InternalType, Map<Resource.InternalType, String>> entry : ids.entrySet()) {
+        Map<Resource.InternalType, String> map = entry.getValue();
+        for (Map.Entry<Resource.InternalType, String> innerEntry : map.entrySet()) {
+          String value = innerEntry.getValue();
+          System.out.println(entry.getKey().name() + ": " + innerEntry.getKey().name() + "/" + value);
+        }
+      }
+      System.out.println("TIM PRINT END " + type);
+  }
+
+  public static void printKeyPropertyIds(Map<Resource.InternalType, Map<Resource.Type, String>> ids, String type) {
+      System.out.println("TIM PRINT START " + type);
+      for (Map.Entry<Resource.InternalType, Map<Resource.Type, String>> entry : ids.entrySet()) {
+        Map<Resource.Type, String> map = entry.getValue();
+        for (Map.Entry<Resource.Type, String> innerEntry : map.entrySet()) {
+          String value = innerEntry.getValue();
+          System.out.println(entry.getKey().name() + ": " + innerEntry.getKey().name() + "/" + value);
+        }
+      }
+      System.out.println("TIM PRINT END " + type);
   }
 
   protected static class Metric {

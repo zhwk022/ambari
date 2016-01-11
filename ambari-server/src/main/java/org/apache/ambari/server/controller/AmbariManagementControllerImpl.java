@@ -62,6 +62,8 @@ import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 
+import javax.persistence.RollbackException;
+
 import org.apache.ambari.server.AmbariException;
 import org.apache.ambari.server.ClusterNotFoundException;
 import org.apache.ambari.server.DuplicateResourceException;
@@ -95,14 +97,22 @@ import org.apache.ambari.server.customactions.ActionDefinition;
 import org.apache.ambari.server.metadata.ActionMetadata;
 import org.apache.ambari.server.metadata.RoleCommandOrder;
 import org.apache.ambari.server.orm.dao.ClusterDAO;
+import org.apache.ambari.server.orm.dao.ExtensionDAO;
+import org.apache.ambari.server.orm.dao.ExtensionLinkDAO;
+import org.apache.ambari.server.orm.dao.ExtensionRepositoryVersionDAO;
 import org.apache.ambari.server.orm.dao.RepositoryVersionDAO;
+import org.apache.ambari.server.orm.dao.StackDAO;
 import org.apache.ambari.server.orm.dao.WidgetDAO;
 import org.apache.ambari.server.orm.dao.WidgetLayoutDAO;
 import org.apache.ambari.server.orm.entities.ClusterEntity;
 import org.apache.ambari.server.orm.entities.ClusterVersionEntity;
+import org.apache.ambari.server.orm.entities.ExtensionEntity;
+import org.apache.ambari.server.orm.entities.ExtensionLinkEntity;
+import org.apache.ambari.server.orm.entities.ExtensionRepositoryVersionEntity;
 import org.apache.ambari.server.orm.entities.OperatingSystemEntity;
 import org.apache.ambari.server.orm.entities.RepositoryEntity;
 import org.apache.ambari.server.orm.entities.RepositoryVersionEntity;
+import org.apache.ambari.server.orm.entities.StackEntity;
 import org.apache.ambari.server.orm.entities.WidgetEntity;
 import org.apache.ambari.server.orm.entities.WidgetLayoutEntity;
 import org.apache.ambari.server.orm.entities.WidgetLayoutUserWidgetEntity;
@@ -122,6 +132,8 @@ import org.apache.ambari.server.security.ldap.LdapBatchDto;
 import org.apache.ambari.server.security.ldap.LdapSyncDto;
 import org.apache.ambari.server.serveraction.kerberos.KerberosInvalidConfigurationException;
 import org.apache.ambari.server.serveraction.kerberos.KerberosOperationException;
+import org.apache.ambari.server.stack.ExtensionHelper;
+import org.apache.ambari.server.stack.StackManager;
 import org.apache.ambari.server.stageplanner.RoleGraph;
 import org.apache.ambari.server.stageplanner.RoleGraphFactory;
 import org.apache.ambari.server.state.Cluster;
@@ -131,6 +143,7 @@ import org.apache.ambari.server.state.ComponentInfo;
 import org.apache.ambari.server.state.Config;
 import org.apache.ambari.server.state.ConfigFactory;
 import org.apache.ambari.server.state.ConfigHelper;
+import org.apache.ambari.server.state.ExtensionInfo;
 import org.apache.ambari.server.state.Host;
 import org.apache.ambari.server.state.HostComponentAdminState;
 import org.apache.ambari.server.state.HostState;
@@ -155,6 +168,7 @@ import org.apache.ambari.server.state.StackInfo;
 import org.apache.ambari.server.state.State;
 import org.apache.ambari.server.state.configgroup.ConfigGroupFactory;
 import org.apache.ambari.server.state.scheduler.RequestExecutionFactory;
+import org.apache.ambari.server.state.stack.ServiceMetainfoXml;
 import org.apache.ambari.server.state.stack.WidgetLayout;
 import org.apache.ambari.server.state.stack.WidgetLayoutInfo;
 import org.apache.ambari.server.state.svccomphost.ServiceComponentHostInstallEvent;
@@ -253,6 +267,14 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
   private ClusterDAO clusterDAO;
   @Inject
   private CredentialStoreService credentialStoreService;
+  @Inject
+  private ExtensionLinkDAO linkDAO;
+  @Inject
+  private ExtensionDAO extensionDAO;
+  @Inject
+  private ExtensionRepositoryVersionDAO extensionRepositoryVersionDAO;
+  @Inject
+  private StackDAO stackDAO;
 
   private MaintenanceStateHelper maintenanceStateHelper;
 
@@ -424,6 +446,146 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
     }
     // Create cluster widgets and layouts
     initializeWidgetsAndLayouts(c, null);
+  }
+
+  @Override
+  public void deleteExtensionLink(ExtensionLinkRequest request) throws AmbariException {
+    if (request.getLinkId() == null) {
+      throw new IllegalArgumentException("Link ID should be provided");
+    }
+    ExtensionLinkEntity linkEntity = null;
+    try {
+      linkEntity = linkDAO.findById(new Long(request.getLinkId()));
+    } catch (RollbackException e) {
+      throw new AmbariException("Unable to find extension link"
+            + ", linkId=" + request.getLinkId(), e);
+    }
+
+    StackInfo stackInfo = ambariMetaInfo.getStack(linkEntity.getStack().getStackName(), linkEntity.getStack().getStackVersion());
+
+    if (stackInfo == null)
+      throw new StackAccessException("stackName=" + linkEntity.getStack().getStackName() + ", stackVersion=" + linkEntity.getStack().getStackVersion());
+
+    ExtensionInfo extensionInfo = ambariMetaInfo.getExtension(linkEntity.getExtension().getExtensionName(), linkEntity.getExtension().getExtensionVersion());
+
+    if (extensionInfo == null)
+      throw new StackAccessException("extensionName=" + linkEntity.getExtension().getExtensionName() + ", extensionVersion=" + linkEntity.getExtension().getExtensionVersion());
+
+    ExtensionHelper.validateDeleteLink(getClusters(), stackInfo, extensionInfo);
+
+    ambariMetaInfo.getStackManager().unlinkStackFromExtension(stackInfo, extensionInfo);
+
+    try {
+      linkDAO.remove(linkEntity);
+    } catch (RollbackException e) {
+      throw new AmbariException("Unable to delete extension link"
+              + ", linkId=" + request.getLinkId()
+              + ", stackName=" + request.getStackName()
+              + ", stackVersion=" + request.getStackVersion()
+              + ", extensionName=" + request.getExtensionName()
+              + ", extensionVersion=" + request.getExtensionVersion(), e);
+    }
+
+  }
+
+  @Override
+  public void createExtensionLink(ExtensionLinkRequest request) throws AmbariException {
+    validateCreateExtensionLinkRequest(request);
+
+    StackInfo stackInfo = ambariMetaInfo.getStack(request.getStackName(), request.getStackVersion());
+
+    if (stackInfo == null)
+      throw new StackAccessException("stackName=" + request.getStackName() + ", stackVersion=" + request.getStackVersion());
+
+    ExtensionInfo extensionInfo = ambariMetaInfo.getExtension(request.getExtensionName(), request.getExtensionVersion());
+
+    if (extensionInfo == null)
+      throw new StackAccessException("extensionName=" + request.getExtensionName() + ", extensionVersion=" + request.getExtensionVersion());
+
+    ExtensionHelper.validateCreateLink(stackInfo, extensionInfo);
+
+    ambariMetaInfo.getStackManager().linkStackToExtension(stackInfo, extensionInfo);
+
+    ExtensionLinkEntity linkEntity = createExtensionLinkEntity(request);
+
+    try {
+      linkDAO.create(linkEntity);
+      linkEntity = linkDAO.merge(linkEntity);
+    } catch (RollbackException e) {
+      LOG.debug("Unable to create extension link", e);
+      LOG.warn("Unable to create extension link"
+              + ", stackName=" + request.getStackName()
+              + ", stackVersion=" + request.getStackVersion()
+              + ", extensionName=" + request.getExtensionName()
+              + ", extensionVersion=" + request.getExtensionVersion());
+      throw new AmbariException("Unable to create extension link"
+              + ", stackName=" + request.getStackName()
+              + ", stackVersion=" + request.getStackVersion()
+              + ", extensionName=" + request.getExtensionName()
+              + ", extensionVersion=" + request.getExtensionVersion(), e);
+    }
+
+  }
+
+  @Override
+  public void updateExtensionLink(ExtensionLinkRequest request) throws AmbariException {
+    if (request.getLinkId() == null) {
+      throw new AmbariException("Link ID should be provided");
+    }
+    ExtensionLinkEntity linkEntity = null;
+    try {
+      linkEntity = linkDAO.findById(new Long(request.getLinkId()));
+    } catch (RollbackException e) {
+      throw new AmbariException("Unable to find extension link"
+            + ", linkId=" + request.getLinkId(), e);
+    }
+    updateExtensionLink(linkEntity);
+  }
+
+  @Override
+  public void updateExtensionLink(ExtensionLinkEntity linkEntity) throws AmbariException {
+    StackInfo stackInfo = ambariMetaInfo.getStack(linkEntity.getStack().getStackName(), linkEntity.getStack().getStackVersion());
+
+    if (stackInfo == null)
+      throw new StackAccessException("stackName=" + linkEntity.getStack().getStackName() + ", stackVersion=" + linkEntity.getStack().getStackVersion());
+
+    ExtensionInfo extensionInfo = ambariMetaInfo.getExtension(linkEntity.getExtension().getExtensionName(), linkEntity.getExtension().getExtensionVersion());
+
+    if (extensionInfo == null)
+      throw new StackAccessException("extensionName=" + linkEntity.getExtension().getExtensionName() + ", extensionVersion=" + linkEntity.getExtension().getExtensionVersion());
+
+    ambariMetaInfo.getStackManager().linkStackToExtension(stackInfo, extensionInfo);
+  }
+
+  private void validateCreateExtensionLinkRequest(ExtensionLinkRequest request) throws AmbariException {
+    if (request.getStackName() == null
+            || request.getStackVersion() == null
+            || request.getExtensionName() == null
+            || request.getExtensionVersion() == null) {
+
+      throw new IllegalArgumentException("Stack name, stack version, extension name and extension version should be provided");
+    }
+
+    ExtensionLinkEntity entity = linkDAO.findByStackAndExtension(request.getStackName(), request.getStackVersion(),
+            request.getExtensionName(), request.getExtensionVersion());
+
+    if (entity != null) {
+      throw new AmbariException("The stack and extension are already linked"
+                + ", stackName=" + request.getStackName()
+                + ", stackVersion=" + request.getStackVersion()
+                + ", extensionName=" + request.getExtensionName()
+                + ", extensionVersion=" + request.getExtensionVersion());
+    }
+  }
+
+  private ExtensionLinkEntity createExtensionLinkEntity(ExtensionLinkRequest request) throws AmbariException {
+    StackEntity stack = stackDAO.find(request.getStackName(), request.getStackVersion());
+    ExtensionEntity extension = extensionDAO.find(request.getExtensionName(), request.getExtensionVersion());
+
+    ExtensionLinkEntity linkEntity = new ExtensionLinkEntity();
+    linkEntity.setStack(stack);
+    linkEntity.setExtension(extension);
+    return linkEntity;
   }
 
   @Override
@@ -2687,12 +2849,64 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
     for (PropertyInfo property: properties) {
       for (PropertyDependencyInfo dependency: property.getDependedByProperties()) {
         if (dependencyName == null || dependency.getName().equals(dependencyName)) {
-          response.add(dependency.convertToResponse());
+          response.add(new StackConfigurationDependencyResponse(dependency));
         }
       }
     }
 
-    return response;  }
+    return response;
+  }
+
+  @Override
+  public Set<ExtensionConfigurationDependencyResponse> getExtensionConfigurationDependencies(
+          Set<ExtensionConfigurationDependencyRequest> requests) throws AmbariException {
+    Set<ExtensionConfigurationDependencyResponse> response
+            = new HashSet<ExtensionConfigurationDependencyResponse>();
+    if (requests != null) {
+      for (ExtensionConfigurationDependencyRequest request : requests) {
+
+        String extensionName = request.getExtensionName();
+        String extensionVersion = request.getExtensionVersion();
+        String serviceName = request.getServiceName();
+        String propertyName = request.getPropertyName();
+
+        Set<ExtensionConfigurationDependencyResponse> extensionConfigurations
+                = getExtensionConfigurationDependencies(request);
+
+        for (ExtensionConfigurationDependencyResponse dependencyResponse : extensionConfigurations) {
+          dependencyResponse.setExtensionName(extensionName);
+          dependencyResponse.setExtensionVersion(extensionVersion);
+          dependencyResponse.setServiceName(serviceName);
+          dependencyResponse.setPropertyName(propertyName);
+        }
+        response.addAll(extensionConfigurations);
+      }
+    }
+    return response;
+  }
+
+  private Set<ExtensionConfigurationDependencyResponse> getExtensionConfigurationDependencies(ExtensionConfigurationDependencyRequest request) throws AmbariException {
+    Set<ExtensionConfigurationDependencyResponse> response =
+      new HashSet<ExtensionConfigurationDependencyResponse>();
+
+    String extensionName = request.getExtensionName();
+    String extensionVersion = request.getExtensionVersion();
+    String serviceName = request.getServiceName();
+    String propertyName = request.getPropertyName();
+    String dependencyName = request.getDependencyName();
+
+    Set<PropertyInfo> properties = ambariMetaInfo.getPropertiesByName(extensionName, extensionVersion, serviceName, propertyName);
+
+    for (PropertyInfo property: properties) {
+      for (PropertyDependencyInfo dependency: property.getDependedByProperties()) {
+        if (dependencyName == null || dependency.getName().equals(dependencyName)) {
+          response.add(new ExtensionConfigurationDependencyResponse(dependency));
+        }
+      }
+    }
+
+    return response;
+  }
 
   void updateServiceStates(
       Cluster cluster,
@@ -3589,6 +3803,46 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
   }
 
   @Override
+  public Set<ExtensionResponse> getExtensions(Set<ExtensionRequest> requests)
+      throws AmbariException {
+    Set<ExtensionResponse> response = new HashSet<ExtensionResponse>();
+    for (ExtensionRequest request : requests) {
+      try {
+        response.addAll(getExtensions(request));
+      } catch (StackAccessException e) {
+        if (requests.size() == 1) {
+          // only throw exception if 1 request.
+          // there will be > 1 request in case of OR predicate
+          throw e;
+        }
+      }
+    }
+    return response;
+
+  }
+
+
+  private Set<ExtensionResponse> getExtensions(ExtensionRequest request)
+      throws AmbariException {
+    Set<ExtensionResponse> response;
+
+    String extensionName = request.getExtensionName();
+
+    if (extensionName != null) {
+      // this will throw an exception if the extension doesn't exist
+      ambariMetaInfo.getExtensions(extensionName);
+      response = Collections.singleton(new ExtensionResponse(extensionName));
+    } else {
+      Collection<ExtensionInfo> supportedExtensions = ambariMetaInfo.getExtensions();
+      response = new HashSet<ExtensionResponse>();
+      for (ExtensionInfo extension: supportedExtensions) {
+        response.add(new ExtensionResponse(extension.getName()));
+      }
+    }
+    return response;
+  }
+
+  @Override
   public Set<RepositoryResponse> getRepositories(Set<RepositoryRequest> requests)
       throws AmbariException {
     Set<RepositoryResponse> response = new HashSet<RepositoryResponse>();
@@ -3765,6 +4019,182 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
   }
 
   @Override
+  public Set<ExtensionRepositoryResponse> getExtensionRepositories(Set<ExtensionRepositoryRequest> requests)
+      throws AmbariException {
+    Set<ExtensionRepositoryResponse> response = new HashSet<ExtensionRepositoryResponse>();
+    for (ExtensionRepositoryRequest request : requests) {
+      try {
+        String stackName    = request.getExtensionName();
+        String stackVersion = request.getExtensionVersion();
+
+        Set<ExtensionRepositoryResponse> repositories = getExtensionRepositories(request);
+
+        for (ExtensionRepositoryResponse repositoryResponse : repositories) {
+          if (repositoryResponse.getExtensionName() == null) {
+            repositoryResponse.setExtensionName(stackName);
+          }
+          if (repositoryResponse.getExtensionVersion() == null) {
+            repositoryResponse.setExtensionVersion(stackVersion);
+          }
+        }
+        response.addAll(repositories);
+      } catch (StackAccessException e) {
+        if (requests.size() == 1) {
+          // only throw exception if 1 request.
+          // there will be > 1 request in case of OR predicate
+          throw e;
+        }
+      }
+    }
+    return response;
+  }
+
+  private Set<ExtensionRepositoryResponse> getExtensionRepositories(ExtensionRepositoryRequest request) throws AmbariException {
+
+    String extensionName = request.getExtensionName();
+    String extensionVersion = request.getExtensionVersion();
+    String osType = request.getOsType();
+    String repoId = request.getRepoId();
+    Long repositoryVersionId = request.getRepositoryVersionId();
+
+    Set<ExtensionRepositoryResponse> responses = new HashSet<ExtensionRepositoryResponse>();
+
+    if (repositoryVersionId != null) {
+      final ExtensionRepositoryVersionEntity repositoryVersion = extensionRepositoryVersionDAO.findByPK(repositoryVersionId);
+      if (repositoryVersion != null) {
+        for (OperatingSystemEntity operatingSystem: repositoryVersion.getOperatingSystems()) {
+          if (operatingSystem.getOsType().equals(osType)) {
+            for (RepositoryEntity repository: operatingSystem.getRepositories()) {
+              final ExtensionRepositoryResponse response = new ExtensionRepositoryResponse(repository.getBaseUrl(), osType, repository.getRepositoryId(), repository.getName(), "", "", "");
+              response.setRepositoryVersionId(repositoryVersionId);
+              response.setExtensionName(repositoryVersion.getExtensionName());
+              response.setExtensionVersion(repositoryVersion.getExtensionVersion());
+              responses.add(response);
+            }
+            break;
+          }
+        }
+      }
+    } else {
+      if (repoId == null) {
+        List<RepositoryInfo> repositories = ambariMetaInfo.getExtensionRepositories(extensionName, extensionVersion, osType);
+
+        for (RepositoryInfo repository: repositories) {
+          responses.add(new ExtensionRepositoryResponse(repository));
+        }
+
+      } else {
+        RepositoryInfo repository = ambariMetaInfo.getExtensionRepository(extensionName, extensionVersion, osType, repoId);
+        responses = Collections.singleton(new ExtensionRepositoryResponse(repository));
+      }
+    }
+
+    return responses;
+  }
+
+  @Override
+  public void updateExtensionRepositories(Set<ExtensionRepositoryRequest> requests) throws AmbariException {
+    for (ExtensionRepositoryRequest rr : requests) {
+      if (null == rr.getExtensionName() || rr.getExtensionName().isEmpty()) {
+        throw new AmbariException("Extension name must be specified.");
+      }
+
+      if (null == rr.getExtensionVersion() || rr.getExtensionVersion().isEmpty()) {
+        throw new AmbariException("Extension version must be specified.");
+      }
+
+      if (null == rr.getOsType() || rr.getOsType().isEmpty()) {
+        throw new AmbariException("OS type must be specified.");
+      }
+
+      if (null == rr.getRepoId() || rr.getRepoId().isEmpty()) {
+        throw new AmbariException("Repo ID must be specified.");
+      }
+
+      if (null != rr.getBaseUrl()) {
+        if (rr.isVerifyBaseUrl()) {
+          verifyExtensionRepository(rr);
+        }
+        if (rr.getRepositoryVersionId() != null) {
+          throw new AmbariException("Can't directly update repositories in repository_version, update the repository_version instead");
+        }
+        ambariMetaInfo.updateRepoBaseURL(rr.getExtensionName(), rr.getExtensionName(), rr.getOsType(), rr.getRepoId(), rr.getBaseUrl());
+      }
+    }
+  }
+
+  @Override
+  public void verifyExtensionRepositories(Set<ExtensionRepositoryRequest> requests) throws AmbariException {
+    for (ExtensionRepositoryRequest request: requests) {
+      if (request.getBaseUrl() == null) {
+        throw new AmbariException("Base url is missing for request " + request);
+      }
+      verifyExtensionRepository(request);
+    }
+  }
+
+  /**
+   * Verifies single repository, see {{@link #verifyRepositories(Set)}.
+   *
+   * @param request request
+   * @throws AmbariException if verification fails
+   */
+  private void verifyExtensionRepository(ExtensionRepositoryRequest request) throws AmbariException {
+    URLStreamProvider usp = new URLStreamProvider(REPO_URL_CONNECT_TIMEOUT, REPO_URL_READ_TIMEOUT, null, null, null);
+
+    RepositoryInfo repositoryInfo = ambariMetaInfo.getExtensionRepository(request.getExtensionName(), request.getExtensionName(), request.getOsType(), request.getRepoId());
+    String repoName = repositoryInfo.getRepoName();
+
+    String errorMessage = null;
+
+    String[] suffixes = configs.getRepoValidationSuffixes(request.getOsType());
+    for (String suffix : suffixes) {
+      String formatted_suffix = String.format(suffix, repoName);
+      String spec = request.getBaseUrl().trim();
+
+      // This logic is to identify if the end of baseurl has a slash ('/') and/or the beginning of suffix String (e.g. "/repodata/repomd.xml")
+      // has a slash and they can form a good url.
+      // e.g. "http://baseurl.com/" + "/repodata/repomd.xml" becomes "http://baseurl.com/repodata/repomd.xml" but not "http://baseurl.com//repodata/repomd.xml"
+      if (spec.charAt(spec.length() - 1) != '/' && formatted_suffix.charAt(0) != '/') {
+        spec = spec + "/" + formatted_suffix;
+      } else if (spec.charAt(spec.length() - 1) == '/' && formatted_suffix.charAt(0) == '/') {
+        spec = spec + formatted_suffix.substring(1);
+      } else {
+        spec = spec + formatted_suffix;
+      }
+
+      // if spec contains "file://" then check local file system.
+      final String FILE_SCHEME = "file://";
+      if(spec.toLowerCase().startsWith(FILE_SCHEME)){
+        String filePath = spec.substring(FILE_SCHEME.length());
+        File f = new File(filePath);
+        if(!f.exists()){
+          errorMessage = "Could not access base url . " + spec + " . ";
+          break;
+        }
+
+      }else{
+        try {
+          IOUtils.readLines(usp.readFrom(spec));
+        } catch (IOException ioe) {
+          errorMessage = "Could not access base url . " + request.getBaseUrl() + " . ";
+          if (LOG.isDebugEnabled()) {
+            errorMessage += ioe;
+          } else {
+            errorMessage += ioe.getMessage();
+          }
+          break;
+        }
+      }
+    }
+
+    if (errorMessage != null) {
+      LOG.error(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+  }
+
+  @Override
   public Set<StackVersionResponse> getStackVersions(
       Set<StackVersionRequest> requests) throws AmbariException {
     Set<StackVersionResponse> response = new HashSet<StackVersionResponse>();
@@ -3804,6 +4234,54 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
         response = new HashSet<StackVersionResponse>();
         for (StackInfo stackInfo: stackInfos) {
           response.add(stackInfo.convertToResponse());
+        }
+      } catch (StackAccessException e) {
+        response = Collections.emptySet();
+      }
+    }
+
+    return response;
+  }
+
+  public Set<ExtensionVersionResponse> getExtensionVersions(
+      Set<ExtensionVersionRequest> requests) throws AmbariException {
+    Set<ExtensionVersionResponse> response = new HashSet<ExtensionVersionResponse>();
+    for (ExtensionVersionRequest request : requests) {
+      String extensionName = request.getExtensionName();
+      try {
+        Set<ExtensionVersionResponse> stackVersions = getExtensionVersions(request);
+        for (ExtensionVersionResponse stackVersionResponse : stackVersions) {
+          stackVersionResponse.setExtensionName(extensionName);
+        }
+        response.addAll(stackVersions);
+      } catch (StackAccessException e) {
+        if (requests.size() == 1) {
+          // only throw exception if 1 request.
+          // there will be > 1 request in case of OR predicate
+          throw e;
+        }
+      }
+    }
+
+    return response;
+
+  }
+
+  private Set<ExtensionVersionResponse> getExtensionVersions(ExtensionVersionRequest request) throws AmbariException {
+    Set<ExtensionVersionResponse> response;
+
+    String extensionName = request.getExtensionName();
+    String extensionVersion = request.getExtensionVersion();
+
+    if (extensionVersion != null) {
+      ExtensionInfo extensionInfo = ambariMetaInfo.getExtension(extensionName, extensionVersion);
+      response = Collections.singleton(extensionInfo.convertToResponse());
+    } else {
+      try {
+        Collection<ExtensionInfo> extensionInfos = ambariMetaInfo.getExtensions(extensionName);
+        response = new HashSet<ExtensionVersionResponse>();
+        for (ExtensionInfo extensionInfo: extensionInfos) {
+          response.add(extensionInfo.convertToResponse());
         }
       } catch (StackAccessException e) {
         response = Collections.emptySet();
@@ -3865,6 +4343,114 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
   }
 
   @Override
+  public Set<ExtensionServiceResponse> getExtensionServices(
+      Set<ExtensionServiceRequest> requests) throws AmbariException {
+
+    Set<ExtensionServiceResponse> response = new HashSet<ExtensionServiceResponse>();
+
+    for (ExtensionServiceRequest request : requests) {
+      String extensionName    = request.getExtensionName();
+      String extensionVersion = request.getExtensionVersion();
+
+      try {
+        Set<ExtensionServiceResponse> extensionServices = getExtensionServices(request);
+
+        for (ExtensionServiceResponse extensionService : extensionServices) {
+		extensionService.setExtensionName(extensionName);
+		extensionService.setExtensionVersion(extensionVersion);
+        }
+
+        response.addAll(extensionServices);
+      } catch (StackAccessException e) {
+        if (requests.size() == 1) {
+          // only throw exception if 1 request.
+          // there will be > 1 request in case of OR predicate
+          throw e;
+        }
+      }
+    }
+
+    return response;
+  }
+
+  private Set<ExtensionServiceResponse> getExtensionServices(ExtensionServiceRequest request) throws AmbariException {
+    Set<ExtensionServiceResponse> response;
+
+    String extensionName = request.getExtensionName();
+    String extensionVersion = request.getExtensionVersion();
+    String serviceName = request.getServiceName();
+
+    if (serviceName != null) {
+      ServiceInfo service = ambariMetaInfo.getExtensionService(extensionName, extensionVersion, serviceName);
+      response = Collections.singleton(new ExtensionServiceResponse(service));
+    } else {
+      Map<String, ServiceInfo> services = ambariMetaInfo.getExtensionServices(extensionName, extensionVersion);
+      response = new HashSet<ExtensionServiceResponse>();
+      for (ServiceInfo service : services.values()) {
+        response.add(new ExtensionServiceResponse(service));
+      }
+    }
+    return response;
+  }
+
+  @Override
+  public Set<ExtensionServiceComponentResponse> getExtensionComponents(
+		Set<ExtensionServiceComponentRequest> requests) throws AmbariException {
+
+    Set<ExtensionServiceComponentResponse> response = new HashSet<ExtensionServiceComponentResponse>();
+    for (ExtensionServiceComponentRequest request : requests) {
+      String extensionName = request.getExtensionName();
+      String version = request.getExtensionVersion();
+      String serviceName  = request.getServiceName();
+
+      try {
+        Set<ExtensionServiceComponentResponse> extensionComponents = getExtensionComponents(request);
+
+        for (ExtensionServiceComponentResponse extensionComponent : extensionComponents) {
+          extensionComponent.setExtensionName(extensionName);
+          extensionComponent.setExtensionVersion(version);
+          extensionComponent.setServiceName(serviceName);
+        }
+
+        response.addAll(extensionComponents);
+      } catch (StackAccessException e) {
+        if (requests.size() == 1) {
+          // only throw exception if 1 request.
+          // there will be > 1 request in case of OR predicate
+          throw e;
+        }
+      }
+    }
+
+    return response;
+  }
+
+  private Set<ExtensionServiceComponentResponse> getExtensionComponents(
+	  ExtensionServiceComponentRequest request) throws AmbariException {
+    Set<ExtensionServiceComponentResponse> response;
+
+    String extensionName = request.getExtensionName();
+    String version = request.getExtensionVersion();
+    String serviceName = request.getServiceName();
+    String componentName = request.getComponentName();
+
+    if (componentName != null) {
+      ComponentInfo component = ambariMetaInfo.getExtensionComponent(extensionName, version, serviceName, componentName);
+      response = Collections.singleton(new ExtensionServiceComponentResponse(
+          component));
+
+    } else {
+      List<ComponentInfo> components = ambariMetaInfo.getExtensionComponentsByService(extensionName, version, serviceName);
+      response = new HashSet<ExtensionServiceComponentResponse>();
+
+      for (ComponentInfo component: components) {
+        response.add(new ExtensionServiceComponentResponse(component));
+      }
+    }
+    return response;
+  }
+
+  @Override
   public Set<StackConfigurationResponse> getStackLevelConfigurations(
       Set<StackLevelConfigurationRequest> requests) throws AmbariException {
     Set<StackConfigurationResponse> response = new HashSet<StackConfigurationResponse>();
@@ -3909,24 +4495,115 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
   }
 
   @Override
+  public Set<ExtensionConfigurationResponse> getExtensionLevelConfigurations(
+      Set<ExtensionLevelConfigurationRequest> requests) throws AmbariException {
+    Set<ExtensionConfigurationResponse> response = new HashSet<ExtensionConfigurationResponse>();
+    for (ExtensionLevelConfigurationRequest request : requests) {
+
+      String extensionName = request.getExtensionName();
+      String extensionVersion = request.getExtensionVersion();
+
+      Set<ExtensionConfigurationResponse> extensionConfigurations = getExtensionLevelConfigurations(request);
+
+      for (ExtensionConfigurationResponse extensionConfigurationResponse : extensionConfigurations) {
+        extensionConfigurationResponse.setExtensionName(extensionName);
+        extensionConfigurationResponse.setExtensionVersion(extensionVersion);
+      }
+
+      response.addAll(extensionConfigurations);
+    }
+
+    return response;
+  }
+
+  private Set<ExtensionConfigurationResponse> getExtensionLevelConfigurations(
+		  ExtensionLevelConfigurationRequest request) throws AmbariException {
+
+    Set<ExtensionConfigurationResponse> response = new HashSet<ExtensionConfigurationResponse>();
+
+    String extensionName = request.getExtensionName();
+    String extensionVersion = request.getExtensionVersion();
+    String propertyName = request.getPropertyName();
+
+    Set<PropertyInfo> properties;
+    if (propertyName != null) {
+      properties = ambariMetaInfo.getExtensionPropertiesByName(extensionName, extensionVersion, propertyName);
+    } else {
+      properties = ambariMetaInfo.getExtensionProperties(extensionName, extensionVersion);
+    }
+    for (PropertyInfo property: properties) {
+      response.add(new ExtensionConfigurationResponse(property));
+    }
+
+    return response;
+  }
+
+  @Override
+  public Set<ExtensionConfigurationResponse> getExtensionConfigurations(
+      Set<ExtensionConfigurationRequest> requests) throws AmbariException {
+    Set<ExtensionConfigurationResponse> response = new HashSet<ExtensionConfigurationResponse>();
+    for (ExtensionConfigurationRequest request : requests) {
+
+      String stackName    = request.getExtensionName();
+      String stackVersion = request.getExtensionVersion();
+      String serviceName  = request.getServiceName();
+
+      Set<ExtensionConfigurationResponse> stackConfigurations = getExtensionConfigurations(request);
+
+      for (ExtensionConfigurationResponse stackConfigurationResponse : stackConfigurations) {
+        stackConfigurationResponse.setExtensionName(stackName);
+        stackConfigurationResponse.setExtensionVersion(stackVersion);
+        stackConfigurationResponse.setServiceName(serviceName);
+      }
+
+      response.addAll(stackConfigurations);
+    }
+
+    return response;
+  }
+
+  private Set<ExtensionConfigurationResponse> getExtensionConfigurations(
+      ExtensionConfigurationRequest request) throws AmbariException {
+
+    Set<ExtensionConfigurationResponse> response = new HashSet<ExtensionConfigurationResponse>();
+
+    String extensionName = request.getExtensionName();
+    String extensionVersion = request.getExtensionVersion();
+    String serviceName = request.getServiceName();
+    String propertyName = request.getPropertyName();
+
+    Set<PropertyInfo> properties;
+    if (propertyName != null) {
+      properties = ambariMetaInfo.getPropertiesByName(extensionName, extensionVersion, serviceName, propertyName);
+    } else {
+      properties = ambariMetaInfo.getServiceProperties(extensionName, extensionVersion, serviceName);
+    }
+    for (PropertyInfo property: properties) {
+      response.add(new ExtensionConfigurationResponse(property));
+    }
+
+    return response;
+  }
+
+  @Override
   public Set<StackConfigurationResponse> getStackConfigurations(
       Set<StackConfigurationRequest> requests) throws AmbariException {
     Set<StackConfigurationResponse> response = new HashSet<StackConfigurationResponse>();
     for (StackConfigurationRequest request : requests) {
 
-      String stackName    = request.getStackName();
-      String stackVersion = request.getStackVersion();
+      String extensionName    = request.getStackName();
+      String extensionVersion = request.getStackVersion();
       String serviceName  = request.getServiceName();
 
-      Set<StackConfigurationResponse> stackConfigurations = getStackConfigurations(request);
+      Set<StackConfigurationResponse> extensionConfigurations = getStackConfigurations(request);
 
-      for (StackConfigurationResponse stackConfigurationResponse : stackConfigurations) {
-        stackConfigurationResponse.setStackName(stackName);
-        stackConfigurationResponse.setStackVersion(stackVersion);
-        stackConfigurationResponse.setServiceName(serviceName);
+      for (StackConfigurationResponse extensionConfigurationResponse : extensionConfigurations) {
+        extensionConfigurationResponse.setStackName(extensionName);
+        extensionConfigurationResponse.setStackVersion(extensionVersion);
+        extensionConfigurationResponse.setServiceName(serviceName);
       }
 
-      response.addAll(stackConfigurations);
+      response.addAll(extensionConfigurations);
     }
 
     return response;
@@ -3949,7 +4626,7 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
       properties = ambariMetaInfo.getServiceProperties(stackName, stackVersion, serviceName);
     }
     for (PropertyInfo property: properties) {
-      response.add(property.convertToResponse());
+      response.add(new StackConfigurationResponse(property));
     }
 
     return response;
@@ -4071,6 +4748,73 @@ public class AmbariManagementControllerImpl implements AmbariManagementControlle
         Set<OperatingSystemInfo> operatingSystems = ambariMetaInfo.getOperatingSystems(stackName, stackVersion);
         for (OperatingSystemInfo operatingSystem : operatingSystems) {
           responses.add(operatingSystem.convertToResponse());
+        }
+      }
+    }
+
+    return responses;
+  }
+
+  @Override
+  public Set<ExtensionOperatingSystemResponse> getExtensionOperatingSystems(
+      Set<ExtensionOperatingSystemRequest> requests) throws AmbariException {
+    Set<ExtensionOperatingSystemResponse> response = new HashSet<ExtensionOperatingSystemResponse>();
+    for (ExtensionOperatingSystemRequest request : requests) {
+      try {
+        String extensionName    = request.getExtensionName();
+        String extensionVersion = request.getExtensionVersion();
+
+        Set<ExtensionOperatingSystemResponse> operatingSystems = getExtensionOperatingSystems(request);
+
+        for (ExtensionOperatingSystemResponse operatingSystemResponse : operatingSystems) {
+          if (operatingSystemResponse.getExtensionName() == null) {
+            operatingSystemResponse.setExtensionName(extensionName);
+          }
+          if (operatingSystemResponse.getExtensionVersion() == null) {
+            operatingSystemResponse.setExtensionVersion(extensionVersion);
+          }
+        }
+        response.addAll(operatingSystems);
+      } catch (StackAccessException e) {
+        if (requests.size() == 1) {
+          // only throw exception if 1 request.
+          // there will be > 1 request in case of OR predicate
+          throw e;
+        }
+      }
+    }
+    return response;
+  }
+
+  private Set<ExtensionOperatingSystemResponse> getExtensionOperatingSystems(
+		  ExtensionOperatingSystemRequest request) throws AmbariException {
+
+    Set<ExtensionOperatingSystemResponse> responses = new HashSet<ExtensionOperatingSystemResponse>();
+
+    String extensionName = request.getExtensionName();
+    String extensionVersion = request.getExtensionVersion();
+    String osType = request.getOsType();
+    Long repositoryVersionId = request.getRepositoryVersionId();
+
+    if (repositoryVersionId != null) {
+      final ExtensionRepositoryVersionEntity repositoryVersion = extensionRepositoryVersionDAO.findByPK(repositoryVersionId);
+      if (repositoryVersion != null) {
+        for (OperatingSystemEntity operatingSystem: repositoryVersion.getOperatingSystems()) {
+          final ExtensionOperatingSystemResponse response = new ExtensionOperatingSystemResponse(operatingSystem.getOsType());
+          response.setRepositoryVersionId(repositoryVersionId);
+          response.setExtensionName(repositoryVersion.getExtensionName());
+          response.setExtensionVersion(repositoryVersion.getExtensionVersion());
+          responses.add(response);
+        }
+      }
+    } else {
+      if (osType != null) {
+        OperatingSystemInfo operatingSystem = ambariMetaInfo.getOperatingSystem(extensionName, extensionVersion, osType);
+        responses = Collections.singleton(new ExtensionOperatingSystemResponse(operatingSystem.getOsType()));
+      } else {
+        Set<OperatingSystemInfo> operatingSystems = ambariMetaInfo.getExtensionOperatingSystems(extensionName, extensionVersion);
+        for (OperatingSystemInfo operatingSystem : operatingSystems) {
+          responses.add(new ExtensionOperatingSystemResponse(operatingSystem.getOsType()));
         }
       }
     }

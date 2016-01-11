@@ -78,6 +78,7 @@ import org.apache.ambari.server.state.CommandScriptDefinition;
 import org.apache.ambari.server.state.ComponentInfo;
 import org.apache.ambari.server.state.ConfigHelper;
 import org.apache.ambari.server.state.CustomCommandDefinition;
+import org.apache.ambari.server.state.ExtensionInfo;
 import org.apache.ambari.server.state.Host;
 import org.apache.ambari.server.state.HostComponentAdminState;
 import org.apache.ambari.server.state.HostState;
@@ -981,7 +982,7 @@ public class AmbariCustomCommandExecutionHelper {
 
     StackId stackId = cluster.getDesiredStackVersion();
 
-    Map<String, List<RepositoryInfo>> repos = ambariMetaInfo.getRepository(
+    Map<String, List<RepositoryInfo>> repos = ambariMetaInfo.getStackAndExtensionRepository(
         stackId.getStackName(), stackId.getStackVersion());
 
     String family = os_family.find(host.getOsType());

@@ -59,6 +59,7 @@ import org.apache.ambari.server.controller.internal.BaseClusterRequest;
 import org.apache.ambari.server.controller.internal.BlueprintResourceProvider;
 import org.apache.ambari.server.controller.internal.ClusterPrivilegeResourceProvider;
 import org.apache.ambari.server.controller.internal.ClusterResourceProvider;
+import org.apache.ambari.server.controller.internal.ExtensionDependencyResourceProvider;
 import org.apache.ambari.server.controller.internal.HostResourceProvider;
 import org.apache.ambari.server.controller.internal.PermissionResourceProvider;
 import org.apache.ambari.server.controller.internal.PrivilegeResourceProvider;
@@ -758,6 +759,7 @@ public class AmbariServer {
         injector.getInstance(BlueprintDAO.class), injector.getInstance(SecurityConfigurationFactory.class),
         injector.getInstance(Gson.class), ambariMetaInfo);
     StackDependencyResourceProvider.init(ambariMetaInfo);
+    ExtensionDependencyResourceProvider.init(ambariMetaInfo);
     ClusterResourceProvider.init(injector.getInstance(TopologyManager.class),
         injector.getInstance(TopologyRequestFactoryImpl.class), injector.getInstance(SecurityConfigurationFactory
             .class), injector.getInstance(Gson.class));

@@ -127,6 +127,7 @@ public class Configuration {
   public static final String RESOURCES_DIR_KEY = "resources.dir";
   public static final String METADATA_DIR_PATH = "metadata.path";
   public static final String COMMON_SERVICES_DIR_PATH = "common.services.path";
+  public static final String EXTENSIONS_DIR_PATH = "extensions.path";
   public static final String SERVER_VERSION_FILE = "server.version.file";
   public static final String SERVER_VERSION_KEY = "version";
   public static final String JAVA_HOME_KEY = "java.home";
@@ -1094,6 +1095,14 @@ public class Configuration {
    */
   public String getCommonServicesPath() {
     return properties.getProperty(COMMON_SERVICES_DIR_PATH);
+  }
+
+  /**
+   * Gets ambari extensions-path
+   * @return String
+   */
+  public String getExtensionsPath() {
+    return properties.getProperty(EXTENSIONS_DIR_PATH);
   }
 
   public String getServerVersionFilePath() {

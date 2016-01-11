@@ -39,12 +39,16 @@ import org.apache.ambari.server.events.MaintenanceModeEvent;
 import org.apache.ambari.server.events.ServiceComponentInstalledEvent;
 import org.apache.ambari.server.events.ServiceComponentUninstalledEvent;
 import org.apache.ambari.server.events.publishers.AmbariEventPublisher;
+import org.apache.ambari.server.orm.dao.ExtensionDAO;
+import org.apache.ambari.server.orm.dao.ExtensionRepositoryVersionDAO;
 import org.apache.ambari.server.orm.dao.HostComponentDesiredStateDAO;
 import org.apache.ambari.server.orm.dao.HostComponentStateDAO;
 import org.apache.ambari.server.orm.dao.HostDAO;
 import org.apache.ambari.server.orm.dao.RepositoryVersionDAO;
 import org.apache.ambari.server.orm.dao.ServiceComponentDesiredStateDAO;
 import org.apache.ambari.server.orm.dao.StackDAO;
+import org.apache.ambari.server.orm.entities.ExtensionEntity;
+import org.apache.ambari.server.orm.entities.ExtensionRepositoryVersionEntity;
 import org.apache.ambari.server.orm.entities.HostComponentDesiredStateEntity;
 import org.apache.ambari.server.orm.entities.HostComponentDesiredStateEntityPK;
 import org.apache.ambari.server.orm.entities.HostComponentStateEntity;
@@ -56,16 +60,20 @@ import org.apache.ambari.server.orm.entities.StackEntity;
 import org.apache.ambari.server.state.Cluster;
 import org.apache.ambari.server.state.Clusters;
 import org.apache.ambari.server.state.ConfigHelper;
+import org.apache.ambari.server.state.ExtensionId;
+import org.apache.ambari.server.state.ExtensionInfo;
 import org.apache.ambari.server.state.Host;
 import org.apache.ambari.server.state.HostComponentAdminState;
 import org.apache.ambari.server.state.HostConfig;
 import org.apache.ambari.server.state.HostState;
 import org.apache.ambari.server.state.MaintenanceState;
+import org.apache.ambari.server.state.RepositoryInfo;
 import org.apache.ambari.server.state.SecurityState;
 import org.apache.ambari.server.state.ServiceComponent;
 import org.apache.ambari.server.state.ServiceComponentHost;
 import org.apache.ambari.server.state.ServiceComponentHostEvent;
 import org.apache.ambari.server.state.ServiceComponentHostEventType;
+import org.apache.ambari.server.state.ServiceInfo;
 import org.apache.ambari.server.state.StackId;
 import org.apache.ambari.server.state.StackInfo;
 import org.apache.ambari.server.state.State;
@@ -109,6 +117,8 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
   @Inject
   RepositoryVersionDAO repositoryVersionDAO;
   @Inject
+  ExtensionRepositoryVersionDAO extensionRepositoryVersionDAO;
+  @Inject
   ServiceComponentDesiredStateDAO serviceComponentDesiredStateDAO;
   @Inject
   Clusters clusters;
@@ -137,6 +147,12 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
    */
   @Inject
   private StackDAO stackDAO;
+
+  /**
+   * Data access object for extension.
+   */
+  @Inject
+  private ExtensionDAO extensionDAO;
 
   // Only used when object state is not persisted
   private HostComponentStateEntity stateEntity;
@@ -743,6 +759,17 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
     StackEntity stackEntity = stackDAO.find(stackId.getStackName(),
         stackId.getStackVersion());
 
+    ExtensionEntity extensionEntity = null;
+
+    try {
+      ExtensionInfo extension = ambariMetaInfo.getExtensionByStackService(stackId.getStackName(),
+          stackId.getStackVersion(), serviceComponent.getServiceName());
+      if (extension != null)
+        extensionEntity = extensionDAO.find(extension.getName(), extension.getVersion());
+    } catch (AmbariException e) {
+      throw new RuntimeException(e);
+    }
+
     stateEntity = new HostComponentStateEntity();
     stateEntity.setClusterId(serviceComponent.getClusterId());
     stateEntity.setComponentName(serviceComponent.getName());
@@ -752,6 +779,8 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
     stateEntity.setCurrentState(stateMachine.getCurrentState());
     stateEntity.setUpgradeState(UpgradeState.NONE);
     stateEntity.setCurrentStack(stackEntity);
+    if (extensionEntity != null)
+      stateEntity.setCurrentExtension(extensionEntity);
 
     desiredStateEntity = new HostComponentDesiredStateEntity();
     desiredStateEntity.setClusterId(serviceComponent.getClusterId());
@@ -760,6 +789,8 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
     desiredStateEntity.setHostEntity(hostEntity);
     desiredStateEntity.setDesiredState(State.INIT);
     desiredStateEntity.setDesiredStack(stackEntity);
+    if (extensionEntity != null)
+	desiredStateEntity.setDesiredExtension(extensionEntity);
 
     if(!serviceComponent.isMasterComponent() && !serviceComponent.isClientComponent()) {
       desiredStateEntity.setAdminState(HostComponentAdminState.INSERVICE);
@@ -1567,9 +1598,11 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
     if (stateEntity != null) {
       // make sure that the state entities are removed from the associated (detached) host entity
       // Also refresh before delete
-      stateEntity.getHostEntity().removeHostComponentStateEntity(stateEntity);
+      if (stateEntity != null && stateEntity.getHostEntity() != null)
+        stateEntity.getHostEntity().removeHostComponentStateEntity(stateEntity);
       HostComponentDesiredStateEntity desiredStateEntity = getDesiredStateEntity();
-      desiredStateEntity.getHostEntity().removeHostComponentDesiredStateEntity(desiredStateEntity);
+      if (desiredStateEntity != null && desiredStateEntity.getHostEntity() != null)
+        desiredStateEntity.getHostEntity().removeHostComponentDesiredStateEntity(desiredStateEntity);
 
       hostComponentDesiredStateDAO.remove(desiredStateEntity);
 
@@ -1747,6 +1780,40 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
         repositoryVersionHelper.serializeOperatingSystems(stackInfo.getRepositories()));
   }
 
+  @Transactional
+  private ExtensionRepositoryVersionEntity createExtensionRepositoryVersion(String version, ExtensionInfo extension) throws AmbariException {
+    LOG.info("Creating new extension repository version " + extension.getName() + "-" + extension.getVersion());
+
+    ExtensionEntity extensionEntity = extensionDAO.find(extension.getName(), extension.getVersion());
+
+    // Ensure that the version provided is part of the Extension
+    if (null == version) {
+      throw new AmbariException(MessageFormat.format("Cannot create Repository Version for Extension {0}-{1} if the version is empty",
+	    extension.getName(), extension.getVersion()));
+    }
+
+    return extensionRepositoryVersionDAO.create(
+	   extensionEntity,
+        version,
+        extension.getName() + "-" + version,
+        repositoryVersionHelper.serializeOperatingSystems(extension.getRepositories()));
+  }
+
+  public boolean isExtensionService() {
+    try {
+      final String hostName = getHostName();
+      final Set<Cluster> clustersForHost = clusters.getClustersForHost(hostName);
+      final Cluster cluster = clustersForHost.iterator().next();
+      final StackId stackId = cluster.getDesiredStackVersion();
+      final ServiceInfo serviceInfo = ambariMetaInfo.getService(stackId.getStackName(), stackId.getStackVersion(), getServiceName());
+
+      return serviceInfo.isExtensionService();
+    }
+    catch (Exception e) {
+      return false;
+    }
+  }
+
   /**
    * Bootstrap any Repo Version, and potentially transition the Host Version across states.
    * If a Host Component has a valid version, then create a Host Version if it does not already exist.
@@ -1757,6 +1824,7 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
   @Override
   public RepositoryVersionEntity recalculateHostVersionState() throws AmbariException {
     RepositoryVersionEntity repositoryVersion = null;
+
     String version = getVersion();
     if (version == null || version.isEmpty() || version.equalsIgnoreCase(State.UNKNOWN.toString())) {
       // Recalculate only if some particular version is set
@@ -1770,6 +1838,11 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
     }
     final Cluster cluster = clustersForHost.iterator().next();
     final StackId stackId = cluster.getDesiredStackVersion();
+
+    final ServiceInfo serviceInfo = ambariMetaInfo.getService(stackId.getStackName(), stackId.getStackVersion(), getServiceName());
+    if (serviceInfo.isExtensionService())
+      return null;
+
     final StackInfo stackInfo = ambariMetaInfo.getStack(stackId.getStackName(), stackId.getStackVersion());
 
     writeLock.lock();
@@ -1784,6 +1857,59 @@ public class ServiceComponentHostImpl implements ServiceComponentHost {
 
       final HostEntity host = hostDAO.findByName(hostName);
       cluster.transitionHostVersionState(host, repositoryVersion, stackId);
+    } finally {
+      writeLock.unlock();
+    }
+    return repositoryVersion;
+  }
+
+  /**
+   * Bootstrap any Extension Repository Version, and potentially transition the Host Version across states.
+   * If a Host Component has a valid version, then create a Host Version if it does not already exist.
+   * If a Host Component does not have a version, return right away because no information is known.
+   * @return Return the Extension Repository Version object
+   * @throws AmbariException
+   */
+  @Override
+  public ExtensionRepositoryVersionEntity recalculateHostExtensionVersionState() throws AmbariException {
+    ExtensionRepositoryVersionEntity repositoryVersion = null;
+
+    String version = getVersion();
+    if (version == null || version.isEmpty() || version.equalsIgnoreCase(State.UNKNOWN.toString())) {
+      // Recalculate only if some particular version is set
+      return null;
+    }
+
+    final String hostName = getHostName();
+    final Set<Cluster> clustersForHost = clusters.getClustersForHost(hostName);
+    if (clustersForHost.size() != 1) {
+      throw new AmbariException("Host " + hostName + " should be assigned only to one cluster");
+    }
+    final Cluster cluster = clustersForHost.iterator().next();
+    final StackId stackId = cluster.getDesiredStackVersion();
+
+    String serviceName = getServiceName();
+
+    final ServiceInfo serviceInfo = ambariMetaInfo.getService(stackId.getStackName(), stackId.getStackVersion(), serviceName);
+    if (!serviceInfo.isExtensionService())
+      return null;
+
+    final StackInfo stackInfo = ambariMetaInfo.getStack(stackId.getStackName(), stackId.getStackVersion());
+    ExtensionInfo extensionInfo = stackInfo.getExtensionByService(serviceName);
+
+    writeLock.lock();
+    try {
+      // Check if there is a Extension Repo Version already for the version.
+      // If it doesn't exist, will have to create it.s
+      repositoryVersion = extensionRepositoryVersionDAO.findByExtensionNameAndVersion(extensionInfo.getName(), version);
+
+      if (null == repositoryVersion) {
+        repositoryVersion = createExtensionRepositoryVersion(version, extensionInfo);
+      }
+
+      final HostEntity host = hostDAO.findByName(hostName);
+      ExtensionId extensionId = new ExtensionId(extensionInfo);
+      cluster.transitionHostExtensionVersionState(host, repositoryVersion, extensionId);
     } finally {
       writeLock.unlock();
     }

@@ -22,6 +22,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+
 import org.apache.ambari.server.AmbariException;
 import org.apache.ambari.server.ParentObjectNotFoundException;
 import org.apache.ambari.server.StackAccessException;
@@ -44,6 +45,7 @@ import org.apache.ambari.server.state.Cluster;
 import org.apache.ambari.server.state.Clusters;
 import org.apache.ambari.server.state.ComponentInfo;
 import org.apache.ambari.server.state.DependencyInfo;
+import org.apache.ambari.server.state.ExtensionInfo;
 import org.apache.ambari.server.state.OperatingSystemInfo;
 import org.apache.ambari.server.state.PropertyInfo;
 import org.apache.ambari.server.state.RepositoryInfo;
@@ -66,6 +68,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.xml.bind.JAXBException;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.FilenameFilter;
@@ -99,7 +102,7 @@ public class AmbariMetaInfo {
   public static final String SERVICE_ALERT_FILE_NAME = "alerts.json";
 
   /**
-   * The filename name for a Kerberos descriptor file at either the stack or service level
+   * The filename for a Kerberos descriptor file at either the stack or service level
    */
   public static final String KERBEROS_DESCRIPTOR_FILE_NAME = "kerberos.json";
 
@@ -147,6 +150,7 @@ public class AmbariMetaInfo {
 
   private File stackRoot;
   private File commonServicesRoot;
+  private File extensionsRoot;
   private File serverVersionFile;
   private File customActionRoot;
 
@@ -226,6 +230,11 @@ public class AmbariMetaInfo {
       commonServicesRoot = new File(commonServicesPath);
     }
 
+    String extensionsPath = conf.getExtensionsPath();
+    if (extensionsPath != null && !extensionsPath.isEmpty()) {
+      extensionsRoot = new File(extensionsPath);
+    }
+
     String serverVersionFilePath = conf.getServerVersionFilePath();
     serverVersionFile = new File(serverVersionFilePath);
 
@@ -244,7 +253,7 @@ public class AmbariMetaInfo {
 
     readServerVersion();
 
-    stackManager = stackManagerFactory.create(stackRoot, commonServicesRoot,
+    stackManager = stackManagerFactory.create(stackRoot, commonServicesRoot, extensionsRoot,
         osFamily);
 
     getCustomActionDefinitions(customActionRoot);
@@ -295,6 +304,52 @@ public class AmbariMetaInfo {
   }
 
   /**
+   * Get components by service
+   *
+   * @param stackName     stack name
+   * @param version       stack version
+   * @param serviceName   service name
+   * @return List of ComponentInfo objects
+   * @throws AmbariException
+   */
+  public List<ComponentInfo> getExtensionComponentsByService(String extensionName, String version, String serviceName)
+      throws AmbariException {
+
+    ServiceInfo service;
+    try {
+      service = getExtensionService(extensionName, version, serviceName);
+    } catch (StackAccessException e) {
+      throw new ParentObjectNotFoundException("Parent Service resource doesn't exist. extensionName=" +
+	  extensionName + ", extensionVersion=" + version + ", serviceName=" + serviceName);
+    }
+    return service.getComponents();
+  }
+
+  public ComponentInfo getExtensionComponent(String extensionName, String version, String serviceName,
+                                    String componentName) throws AmbariException {
+
+    ComponentInfo component = getExtensionService(extensionName, version, serviceName).getComponentByName(componentName);
+
+    if (component == null) {
+      throw new StackAccessException("extensionName=" + extensionName
+          + ", extensionVersion=" + version
+          + ", serviceName=" + serviceName
+          + ", componentName=" + componentName);
+    }
+    return component;
+  }
+
+  public ComponentInfo getExtensionComponentSafe(String extensionName, String version, String serviceName,
+                                    String componentName) throws AmbariException {
+
+    ServiceInfo service = getExtensionServiceSafe(extensionName, version, serviceName);
+    if (service == null)
+	return null;
+
+    return service.getComponentByName(componentName);
+  }
+
+  /**
    * Get all dependencies for a component.
    *
    * @param stackName  stack name
@@ -311,6 +366,29 @@ public class AmbariMetaInfo {
     ComponentInfo componentInfo;
     try {
       componentInfo = getComponent(stackName, version, service, component);
+    } catch (StackAccessException e) {
+      throw new ParentObjectNotFoundException("Parent Component resource doesn't exist", e);
+    }
+    return componentInfo.getDependencies();
+  }
+
+  /**
+   * Get all dependencies for a component.
+   *
+   * @param extensionName  extension name
+   * @param version        extension version
+   * @param service        service name
+   * @param component      component name
+   *
+   * @return List of dependencies for the given component
+   * @throws AmbariException if unable to obtain the dependencies for the component
+   */
+  public List<DependencyInfo> getExtensionComponentDependencies(String extensionName, String version,
+                                                       String service, String component)
+                                                       throws AmbariException {
+    ComponentInfo componentInfo;
+    try {
+      componentInfo = getExtensionComponent(extensionName, version, service, component);
     } catch (StackAccessException e) {
       throw new ParentObjectNotFoundException("Parent Component resource doesn't exist", e);
     }
@@ -351,6 +429,75 @@ public class AmbariMetaInfo {
     }
 
     return foundDependency;
+  }
+
+  /**
+   * Obtain a specific dependency by name.
+   *
+   * @param extensionName       extension name
+   * @param version             extension version
+   * @param service             service name
+   * @param component           component name
+   * @param dependencyName      dependency component name
+   *
+   * @return the requested dependency
+   * @throws AmbariException if unable to obtain the requested dependency
+   */
+  public DependencyInfo getExtensionComponentDependency(String extensionName, String version, String service,
+                                               String component, String dependencyName) throws AmbariException {
+
+    DependencyInfo foundDependency = null;
+    List<DependencyInfo> componentDependencies = getComponentDependencies(
+        extensionName, version, service, component);
+    Iterator<DependencyInfo> iter = componentDependencies.iterator();
+    while (foundDependency == null && iter.hasNext()) {
+      DependencyInfo dependency = iter.next();
+      if (dependencyName.equals(dependency.getComponentName())) {
+        foundDependency = dependency;
+      }
+    }
+    if (foundDependency == null) {
+      throw new StackAccessException("stackName=" + extensionName
+          + ", stackVersion= " + version
+          + ", stackService=" + service
+          + ", stackComponent= " + component
+          + ", dependency=" + dependencyName);
+    }
+
+    return foundDependency;
+  }
+
+  public Map<String, List<RepositoryInfo>> getStackAndExtensionRepository(String stackName,
+                                                         String version) throws AmbariException {
+    StackInfo stack = getStack(stackName, version);
+    List<RepositoryInfo> repositories = stack.getRepositories();
+
+    Map<String, List<RepositoryInfo>> reposResult = new HashMap<String, List<RepositoryInfo>>();
+    for (RepositoryInfo repo : repositories) {
+      if (!reposResult.containsKey(repo.getOsType())) {
+        reposResult.put(repo.getOsType(),
+            new ArrayList<RepositoryInfo>());
+      }
+      reposResult.get(repo.getOsType()).add(repo);
+    }
+
+    Collection<ExtensionInfo> extensions = stack.getExtensions();
+
+    for (ExtensionInfo extension : extensions) {
+      addExtensionRepositories(extension, reposResult);
+    }
+
+    return reposResult;
+  }
+
+  private void addExtensionRepositories(ExtensionInfo extension, Map<String, List<RepositoryInfo>> reposResult) throws AmbariException {
+    List<RepositoryInfo> repositories = extension.getRepositories();
+    for (RepositoryInfo repo : repositories) {
+      if (!reposResult.containsKey(repo.getOsType())) {
+        reposResult.put(repo.getOsType(), new ArrayList<RepositoryInfo>());
+      }
+      reposResult.get(repo.getOsType()).add(repo);
+    }
   }
 
   public Map<String, List<RepositoryInfo>> getRepository(String stackName,
@@ -405,6 +552,64 @@ public class AmbariMetaInfo {
     if (repoResult == null) {
       throw new StackAccessException("stackName=" + stackName
           + ", stackVersion= " + version
+          + ", osType=" + osType
+          + ", repoId= " + repoId);
+    }
+    return repoResult;
+  }
+
+  public Map<String, List<RepositoryInfo>> getExtensionRepository(String extensionName,
+                                                         String version) throws AmbariException {
+    ExtensionInfo extension = getExtension(extensionName, version);
+    List<RepositoryInfo> repository = extension.getRepositories();
+
+    Map<String, List<RepositoryInfo>> reposResult = new HashMap<String, List<RepositoryInfo>>();
+    for (RepositoryInfo repo : repository) {
+      if (!reposResult.containsKey(repo.getOsType())) {
+        reposResult.put(repo.getOsType(),
+            new ArrayList<RepositoryInfo>());
+      }
+      reposResult.get(repo.getOsType()).add(repo);
+    }
+    return reposResult;
+  }
+
+  public List<RepositoryInfo> getExtensionRepositories(String extensionName,
+                                              String version, String osType) throws AmbariException {
+
+    ExtensionInfo extension = getExtension(extensionName, version);
+    List<RepositoryInfo> repositories = extension.getRepositories();
+
+    List<RepositoryInfo> repositoriesResult = new ArrayList<RepositoryInfo>();
+    for (RepositoryInfo repository : repositories) {
+      if (repository.getOsType().equals(osType)) {
+        repositoriesResult.add(repository);
+      }
+    }
+    return repositoriesResult;
+  }
+
+  public RepositoryInfo getExtensionRepository(String extensionName,
+                                      String version, String osType, String repoId) throws AmbariException {
+
+    List<RepositoryInfo> repositories = getExtensionRepositories(extensionName, version, osType);
+
+    if (repositories.size() == 0) {
+      throw new StackAccessException("extensionName=" + extensionName
+          + ", extensionVersion=" + version
+          + ", osType=" + osType
+          + ", repoId=" + repoId);
+    }
+
+    RepositoryInfo repoResult = null;
+    for (RepositoryInfo repository : repositories) {
+      if (repository.getRepoId().equals(repoId)) {
+        repoResult = repository;
+      }
+    }
+    if (repoResult == null) {
+      throw new StackAccessException("extensionName=" + extensionName
+          + ", extensionVersion= " + version
           + ", osType=" + osType
           + ", repoId= " + repoId);
     }
@@ -522,6 +727,50 @@ public class AmbariMetaInfo {
     return service;
   }
 
+  /**
+   * Given a stack name and version return all the services with info
+   *
+   * @param extensionName the stack name
+   * @param version   the version of the stack
+   * @return the information of abt various services that are supported in the stack
+   * @throws AmbariException
+   */
+  public Map<String, ServiceInfo> getExtensionServices(String extensionName, String version) throws AmbariException {
+
+    Map<String, ServiceInfo> servicesInfoResult = new HashMap<String, ServiceInfo>();
+
+    Collection<ServiceInfo> services;
+    ExtensionInfo extension;
+    try {
+      extension = getExtension(extensionName, version);
+    } catch (StackAccessException e) {
+      throw new ParentObjectNotFoundException("Parent Extension Version resource doesn't exist", e);
+    }
+
+    services = extension.getServices();
+    if (services != null) {
+      for (ServiceInfo service : services) {
+        servicesInfoResult.put(service.getName(), service);
+      }
+    }
+    return servicesInfoResult;
+  }
+
+  public ServiceInfo getExtensionService(String extensionName, String version, String serviceName) throws AmbariException {
+    ServiceInfo service = getExtension(extensionName, version).getService(serviceName);
+
+    if (service == null) {
+      throw new StackAccessException("extensionName=" + extensionName + ", extensionVersion=" +
+                                     version + ", serviceName=" + serviceName);
+    }
+
+    return service;
+  }
+
+  public ServiceInfo getExtensionServiceSafe(String extensionName, String version, String serviceName) throws AmbariException {
+    return getExtension(extensionName, version).getService(serviceName);
+  }
+
   public Collection<String> getMonitoringServiceNames(String stackName, String version)
     throws AmbariException{
 
@@ -618,16 +867,91 @@ public class AmbariMetaInfo {
     return parents;
   }
 
+  public Collection<ExtensionInfo> getExtensions() {
+    return stackManager.getExtensions();
+  }
+
+  public Collection<ExtensionInfo> getExtensions(String extensionName) throws AmbariException {
+    Collection<ExtensionInfo> extensions = stackManager.getExtensions(extensionName);
+
+    if (extensions.isEmpty()) {
+      throw new StackAccessException("extensionName=" + extensionName);
+    }
+
+    return extensions;
+  }
+
+  public ExtensionInfo getExtension(String extensionName, String version) throws AmbariException {
+    ExtensionInfo result = stackManager.getExtension(extensionName, version);
+
+    if (result == null) {
+      throw new StackAccessException("Extension " + extensionName + " " + version + " is not found in Ambari metainfo");
+    }
+
+    return result;
+  }
+
+  public ExtensionInfo getExtensionByStackService(String stackName, String stackVersion, String serviceName) throws AmbariException {
+    StackInfo stack = stackManager.getStack(stackName, stackVersion);
+
+    if (stack == null) {
+      throw new StackAccessException("Stack " + stackName + " " + stackVersion + " is not found in Ambari metainfo");
+    }
+
+    return stack.getExtensionByService(serviceName);
+  }
+
   public Set<PropertyInfo> getServiceProperties(String stackName, String version, String serviceName)
       throws AmbariException {
 
     return new HashSet<PropertyInfo>(getService(stackName, version, serviceName).getProperties());
   }
 
+  public Set<PropertyInfo> getExtensionServiceProperties(String extensionName, String version, String serviceName)
+      throws AmbariException {
+
+    return new HashSet<PropertyInfo>(getExtensionService(extensionName, version, serviceName).getProperties());
+  }
+
   public Set<PropertyInfo> getStackProperties(String stackName, String version)
       throws AmbariException {
 
     return new HashSet<PropertyInfo>(getStack(stackName, version).getProperties());
+  }
+
+  public Set<PropertyInfo> getExtensionProperties(String extensionName, String version)
+      throws AmbariException {
+
+    return new HashSet<PropertyInfo>(getExtension(extensionName, version).getProperties());
+  }
+
+  public Set<PropertyInfo> getPropertiesForExtensionServiceByName(String extensionName, String version, String serviceName, String propertyName)
+      throws AmbariException {
+    Set<PropertyInfo> properties = getExtensionServiceProperties(extensionName, version, serviceName);
+
+    if (properties.size() == 0) {
+      throw new StackAccessException("stackName=" + extensionName
+          + ", stackVersion=" + version
+          + ", serviceName=" + serviceName
+          + ", propertyName=" + propertyName);
+    }
+
+    Set<PropertyInfo> propertyResult = new HashSet<PropertyInfo>();
+
+    for (PropertyInfo property : properties) {
+      if (property.getName().equals(propertyName)) {
+        propertyResult.add(property);
+      }
+    }
+
+    if (propertyResult.isEmpty()) {
+      throw new StackAccessException("stackName=" + extensionName
+          + ", stackVersion=" + version
+          + ", serviceName=" + serviceName
+          + ", propertyName=" + propertyName);
+    }
+
+    return propertyResult;
   }
 
   public Set<PropertyInfo> getPropertiesByName(String stackName, String version, String serviceName, String propertyName)
@@ -689,6 +1013,32 @@ public class AmbariMetaInfo {
     return propertyResult;
   }
 
+  public Set<PropertyInfo> getExtensionPropertiesByName(String extensionName, String version, String propertyName)
+      throws AmbariException {
+    Set<PropertyInfo> properties = getExtensionProperties(extensionName, version);
+
+    if (properties.size() == 0) {
+      throw new StackAccessException("extensionName=" + extensionName
+          + ", extensionVersion=" + version
+          + ", propertyName=" + propertyName);
+    }
+
+    Set<PropertyInfo> propertyResult = new HashSet<PropertyInfo>();
+
+    for (PropertyInfo property : properties) {
+      if (property.getName().equals(propertyName)) {
+        propertyResult.add(property);
+      }
+    }
+
+    if (propertyResult.isEmpty()) {
+      throw new StackAccessException("extensionName=" + extensionName
+          + ", extensionVersion=" + version
+          + ", propertyName=" + propertyName);
+    }
+
+    return propertyResult;
+  }
 
   /**
    * Lists operatingsystems supported by stack
@@ -699,6 +1049,22 @@ public class AmbariMetaInfo {
     Set<OperatingSystemInfo> operatingSystems = new HashSet<OperatingSystemInfo>();
     StackInfo stack = getStack(stackName, version);
     List<RepositoryInfo> repositories = stack.getRepositories();
+    for (RepositoryInfo repository : repositories) {
+      operatingSystems.add(new OperatingSystemInfo(repository.getOsType()));
+    }
+
+    return operatingSystems;
+  }
+
+  /**
+   * Lists operatingsystems supported by extension
+   */
+  public Set<OperatingSystemInfo> getExtensionOperatingSystems(String extensionName, String version)
+      throws AmbariException {
+
+    Set<OperatingSystemInfo> operatingSystems = new HashSet<OperatingSystemInfo>();
+    ExtensionInfo extension = getExtension(extensionName, version);
+    List<RepositoryInfo> repositories = extension.getRepositories();
     for (RepositoryInfo repository : repositories) {
       operatingSystems.add(new OperatingSystemInfo(repository.getOsType()));
     }
@@ -729,6 +1095,35 @@ public class AmbariMetaInfo {
     if (resultOperatingSystem == null) {
       throw new StackAccessException("stackName=" + stackName
           + ", stackVersion=" + version
+          + ", osType=" + osType);
+    }
+
+    return resultOperatingSystem;
+  }
+
+  public OperatingSystemInfo getExtensionOperatingSystem(String extensionName, String version, String osType)
+      throws AmbariException {
+
+    Set<OperatingSystemInfo> operatingSystems = getOperatingSystems(extensionName, version);
+
+    if (operatingSystems.size() == 0) {
+      throw new StackAccessException("extensionName=" + extensionName
+          + ", extensionVersion=" + version
+          + ", osType=" + osType);
+    }
+
+    OperatingSystemInfo resultOperatingSystem = null;
+
+    for (OperatingSystemInfo operatingSystem : operatingSystems) {
+      if (operatingSystem.getOsType().equals(osType)) {
+        resultOperatingSystem = operatingSystem;
+        break;
+      }
+    }
+
+    if (resultOperatingSystem == null) {
+      throw new StackAccessException("extensionName=" + extensionName
+          + ", extensionVersion=" + version
           + ", osType=" + osType);
     }
 
@@ -847,8 +1242,49 @@ public class AmbariMetaInfo {
     }
   }
 
+  /**
+   * @param extensionName the extension name
+   * @param extensionVersion the extension version
+   * @param osType the os
+   * @param repoId the repo id
+   * @param newBaseUrl the new base url
+   */
+  public void updateExtensionRepoBaseURL(String extensionName,
+      String extensionVersion, String osType, String repoId, String newBaseUrl) throws AmbariException {
+
+    // validate existing
+    RepositoryInfo ri = getExtensionRepository(extensionName, extensionVersion, osType, repoId);
+
+    if (!extensionsRoot.exists()) {
+      throw new StackAccessException("Extensions root does not exist.");
+    }
+
+    ri.setBaseUrl(newBaseUrl);
+
+    if (null != metaInfoDAO) {
+      String metaKey = generateRepoMetaKey(extensionName, extensionVersion, osType,
+          repoId, REPOSITORY_XML_PROPERTY_BASEURL);
+
+      MetainfoEntity entity = new MetainfoEntity();
+      entity.setMetainfoName(metaKey);
+      entity.setMetainfoValue(newBaseUrl);
+
+      // !!! need a way to remove
+      if (newBaseUrl.equals("")) {
+        metaInfoDAO.remove(entity);
+      } else {
+        metaInfoDAO.merge(entity);
+        ri.setBaseUrlFromSaved(true);
+      }
+    }
+  }
+
   public File getStackRoot() {
     return stackRoot;
+  }
+
+  public File getExtensionsRoot() {
+    return extensionsRoot;
   }
 
   /**
@@ -861,6 +1297,44 @@ public class AmbariMetaInfo {
 
     if (null == svc.getMetricsFile() || !svc.getMetricsFile().exists()) {
       LOG.debug("Metrics file for " + stackName + "/" + stackVersion + "/" + serviceName + " not found.");
+      return null;
+    }
+
+    Map<String, Map<String, List<MetricDefinition>>> map = svc.getMetrics();
+
+    // check for cached
+    if (null == map) {
+      // data layout:
+      // "DATANODE" -> "Component" -> [ MetricDefinition, MetricDefinition, ... ]
+      //           \-> "HostComponent" -> [ MetricDefinition, ... ]
+      Type type = new TypeToken<Map<String, Map<String, List<MetricDefinition>>>>(){}.getType();
+
+      Gson gson = new Gson();
+
+      try {
+        map = gson.fromJson(new FileReader(svc.getMetricsFile()), type);
+
+        svc.setMetrics(updateComponentMetricMapWithAggregateFunctionIds(map));
+
+      } catch (Exception e) {
+        LOG.error ("Could not read the metrics file", e);
+        throw new AmbariException("Could not read metrics file", e);
+      }
+    }
+
+    return map;
+  }
+
+  /**
+   * Return metrics for a stack service.
+   */
+  public Map<String, Map<String, List<MetricDefinition>>> getExtensionServiceMetrics(String extensionName,
+            String version, String serviceName) throws AmbariException {
+
+    ServiceInfo svc = getExtensionService(extensionName, version, serviceName);
+
+    if (null == svc.getMetricsFile() || !svc.getMetricsFile().exists()) {
+      LOG.debug("Metrics file for " + extensionName + "/" + version + "/" + serviceName + " not found.");
       return null;
     }
 
@@ -948,6 +1422,26 @@ public class AmbariMetaInfo {
 
     Map<String, Map<String, List<MetricDefinition>>> map =
       getServiceMetrics(stackName, stackVersion, serviceName);
+
+    if (map != null && map.containsKey(componentName)) {
+      if (map.get(componentName).containsKey(metricType)) {
+        return map.get(componentName).get(metricType);
+      }
+    }
+
+	  return null;
+  }
+
+  /**
+   * Gets the metrics for a Role (component).
+   * @return the list of defined metrics.
+   */
+  public List<MetricDefinition> getExtensionMetrics(String extensionName, String version,
+      String serviceName, String componentName, String metricType)
+      throws AmbariException {
+
+    Map<String, Map<String, List<MetricDefinition>>> map =
+      getExtensionServiceMetrics(extensionName, version, serviceName);
 
     if (map != null && map.containsKey(componentName)) {
       if (map.get(componentName).containsKey(metricType)) {
@@ -1222,6 +1716,26 @@ public class AmbariMetaInfo {
       LOG.debug("Cannot load config upgrade pack for non-existent stack {}-{}", stackName, stackVersion, e);
       return null;
     }
+  }
+
+  /**
+   * Get all upgrade packs available for an extension.
+   *
+   * @param extensionName the extension name
+   * @param extensionVersion the extension version
+   * @return a map of upgrade packs, keyed by the name of the upgrade pack
+   */
+  public Map<String, UpgradePack> getExtensionUpgradePacks(String extensionName, String extensionVersion) {
+    try {
+      ExtensionInfo extension = getExtension(extensionName, extensionVersion);
+      return extension.getUpgradePacks() == null ?
+          Collections.<String, UpgradePack>emptyMap() : extension.getUpgradePacks();
+
+    } catch (AmbariException e) {
+      LOG.debug("Cannot load upgrade packs for non-existent extension {}-{}", extensionName, extensionVersion, e);
+    }
+
+    return Collections.emptyMap();
   }
 
   /**

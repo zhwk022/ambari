@@ -79,12 +79,57 @@
     "StackService": "StackServiceComponents/service_name",
     "StackServiceComponent": "StackServiceComponents/component_name"
   },
-    "StackServiceComponentDependency": {
+  "StackServiceComponentDependency": {
     "Stack": "Dependencies/stack_name",
     "StackVersion": "Dependencies/stack_version",
     "StackService": "Dependencies/dependent_service_name",
     "StackServiceComponent": "Dependencies/dependent_component_name",
     "StackServiceComponentDependency": "Dependencies/component_name"
+  },
+  "ExtensionLink": {
+    "ExtensionLink": "ExtensionLink/link_id",
+    "Stack": "ExtensionLink/stack_name",
+    "StackVersion": "ExtensionLink/stack_version",
+    "Extension": "ExtensionLink/extension_name",
+    "ExtensionVersion": "ExtensionLink/extension_version"
+  },
+  "Extension": {
+    "Extension": "Extensions/extension_name"
+  },
+  "ExtensionVersion": {
+    "Extension": "Versions/extension_name",
+    "ExtensionVersion": "Versions/extension_version"
+  },
+  "ExtensionService": {
+    "Extension": "ExtensionServices/extension_name",
+    "ExtensionVersion": "ExtensionServices/extension_version",
+    "ExtensionService": "ExtensionServices/service_name"
+  },
+  "ExtensionConfiguration": {
+    "Extension": "ExtensionConfigurations/extension_name",
+    "ExtensionVersion": "ExtensionConfigurations/extension_version",
+    "ExtensionService": "ExtensionConfigurations/service_name",
+    "ExtensionConfiguration": "ExtensionConfigurations/property_name"
+  },
+  "ExtensionConfigurationDependency": {
+    "Extension": "ExtensionConfigurationDependency/extension_name",
+    "ExtensionVersion": "ExtensionConfigurationDependency/extension_version",
+    "ExtensionService": "ExtensionConfigurationDependency/service_name",
+    "ExtensionConfiguration": "ExtensionConfigurationDependency/property_name",
+    "ExtensionConfigurationDependency": "ExtensionConfigurationDependency/dependency_name"
+  },
+  "ExtensionServiceComponent": {
+    "Extension": "ExtensionServiceComponents/extension_name",
+    "ExtensionVersion": "ExtensionServiceComponents/extension_version",
+    "ExtensionService": "ExtensionServiceComponents/service_name",
+    "ExtensionServiceComponent": "ExtensionServiceComponents/component_name"
+  },
+    "ExtensionServiceComponentDependency": {
+    "Extension": "Dependencies/extension_name",
+    "ExtensionVersion": "Dependencies/extension_version",
+    "ExtensionService": "Dependencies/dependent_service_name",
+    "ExtensionServiceComponent": "Dependencies/dependent_component_name",
+    "ExtensionServiceComponentDependency": "Dependencies/component_name"
   },
   "DRFeed": {
     "DRFeed": "Feed/name"
@@ -147,6 +192,11 @@
     "Stack": "StackLevelConfigurations/stack_name",
     "StackVersion": "StackLevelConfigurations/stack_version",
     "StackLevelConfiguration": "StackLevelConfigurations/property_name"  
+  },
+  "ExtensionLevelConfiguration": {
+    "Extension": "ExtensionLevelConfigurations/extension_name",
+    "ExtensionVersion": "ExtensionLevelConfigurations/extension_version",
+    "ExtensionLevelConfiguration": "ExtensionLevelConfigurations/property_name"
   },
   "KerberosDescriptor": {
     "KerberosDescriptor": "KerberosDescriptors/kerberos_descriptor_name"

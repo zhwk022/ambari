@@ -91,13 +91,23 @@ public interface Resource {
     Member,
     Stack,
     StackVersion,
+    ExtensionLink,
+    Extension,
+    ExtensionVersion,
+    ExtensionOperatingSystem,
+    ExtensionRepository,
     OperatingSystem,
     Repository,
     StackService,
+    ExtensionService,
     StackConfiguration,
     StackConfigurationDependency,
     StackServiceComponent,
     StackServiceComponentDependency,
+    ExtensionConfiguration,
+    ExtensionConfigurationDependency,
+    ExtensionServiceComponent,
+    ExtensionServiceComponentDependency,
     DRFeed,
     DRTargetCluster,
     DRInstance,
@@ -127,10 +137,13 @@ public interface Resource {
     ViewPermission,
     ClientConfig,
     StackLevelConfiguration,
+    ExtensionLevelConfiguration,
     LdapSyncEvent,
     UserPrivilege,
     RepositoryVersion,
     CompatibleRepositoryVersion,
+    ExtensionRepositoryVersion,
+    CompatibleExtensionRepositoryVersion,
     ClusterStackVersion,
     HostStackVersion,
     Upgrade,
@@ -139,6 +152,7 @@ public interface Resource {
     PreUpgradeCheck,
     Stage,
     StackArtifact,
+    ExtensionArtifact,
     Artifact,
     Widget,
     WidgetLayout,
@@ -200,6 +214,11 @@ public interface Resource {
     public static final Type Member = InternalType.Member.getType();
     public static final Type Stack = InternalType.Stack.getType();
     public static final Type StackVersion = InternalType.StackVersion.getType();
+    public static final Type ExtensionLink = InternalType.ExtensionLink.getType();
+    public static final Type Extension = InternalType.Extension.getType();
+    public static final Type ExtensionVersion = InternalType.ExtensionVersion.getType();
+    public static final Type ExtensionOperatingSystem = InternalType.ExtensionOperatingSystem.getType();
+    public static final Type ExtensionRepository = InternalType.ExtensionRepository.getType();
     public static final Type OperatingSystem = InternalType.OperatingSystem.getType();
     public static final Type Repository = InternalType.Repository.getType();
     public static final Type StackService = InternalType.StackService.getType();
@@ -207,6 +226,11 @@ public interface Resource {
     public static final Type StackConfigurationDependency = InternalType.StackConfigurationDependency.getType();
     public static final Type StackServiceComponent = InternalType.StackServiceComponent.getType();
     public static final Type StackServiceComponentDependency = InternalType.StackServiceComponentDependency.getType();
+    public static final Type ExtensionService = InternalType.ExtensionService.getType();
+    public static final Type ExtensionConfiguration = InternalType.ExtensionConfiguration.getType();
+    public static final Type ExtensionConfigurationDependency = InternalType.ExtensionConfigurationDependency.getType();
+    public static final Type ExtensionServiceComponent = InternalType.ExtensionServiceComponent.getType();
+    public static final Type ExtensionServiceComponentDependency = InternalType.ExtensionServiceComponentDependency.getType();
     public static final Type DRFeed = InternalType.DRFeed.getType();
     public static final Type DRTargetCluster = InternalType.DRTargetCluster.getType();
     public static final Type DRInstance = InternalType.DRInstance.getType();
@@ -236,10 +260,13 @@ public interface Resource {
     public static final Type ViewPermission = InternalType.ViewPermission.getType();
     public static final Type ClientConfig = InternalType.ClientConfig.getType();
     public static final Type StackLevelConfiguration = InternalType.StackLevelConfiguration.getType();
+    public static final Type ExtensionLevelConfiguration = InternalType.ExtensionLevelConfiguration.getType();
     public static final Type LdapSyncEvent = InternalType.LdapSyncEvent.getType();
     public static final Type UserPrivilege = InternalType.UserPrivilege.getType();
     public static final Type RepositoryVersion = InternalType.RepositoryVersion.getType();
     public static final Type CompatibleRepositoryVersion = InternalType.CompatibleRepositoryVersion.getType();
+    public static final Type ExtensionRepositoryVersion = InternalType.ExtensionRepositoryVersion.getType();
+    public static final Type CompatibleExtensionRepositoryVersion = InternalType.CompatibleExtensionRepositoryVersion.getType();
     public static final Type ClusterStackVersion = InternalType.ClusterStackVersion.getType();
     public static final Type HostStackVersion = InternalType.HostStackVersion.getType();
     public static final Type Upgrade = InternalType.Upgrade.getType();
@@ -248,6 +275,7 @@ public interface Resource {
     public static final Type PreUpgradeCheck = InternalType.PreUpgradeCheck.getType();
     public static final Type Stage = InternalType.Stage.getType();
     public static final Type StackArtifact = InternalType.StackArtifact.getType();
+    public static final Type ExtensionArtifact = InternalType.ExtensionArtifact.getType();
     public static final Type Artifact = InternalType.Artifact.getType();
     public static final Type Theme = InternalType.Theme.getType();
     public static final Type Widget = InternalType.Widget.getType();

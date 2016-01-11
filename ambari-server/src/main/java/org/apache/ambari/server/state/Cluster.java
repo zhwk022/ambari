@@ -27,8 +27,11 @@ import java.util.concurrent.locks.ReadWriteLock;
 import org.apache.ambari.server.AmbariException;
 import org.apache.ambari.server.controller.ClusterResponse;
 import org.apache.ambari.server.controller.ServiceConfigVersionResponse;
+import org.apache.ambari.server.orm.entities.ClusterExtensionVersionEntity;
 import org.apache.ambari.server.orm.entities.ClusterVersionEntity;
+import org.apache.ambari.server.orm.entities.ExtensionRepositoryVersionEntity;
 import org.apache.ambari.server.orm.entities.HostEntity;
+import org.apache.ambari.server.orm.entities.HostExtensionVersionEntity;
 import org.apache.ambari.server.orm.entities.HostVersionEntity;
 import org.apache.ambari.server.orm.entities.PrivilegeEntity;
 import org.apache.ambari.server.orm.entities.RepositoryVersionEntity;
@@ -136,6 +139,12 @@ public interface Cluster {
   Collection<ClusterVersionEntity> getAllClusterVersions();
 
   /**
+   * Get all of the ClusterExtensionVersionEntity objects for the cluster and extension.
+   * @return
+   */
+  Collection<ClusterExtensionVersionEntity> getAllClusterExtensionVersions(String extensionName);
+
+  /**
    * Get desired stack version
    * @return
    */
@@ -216,11 +225,32 @@ public interface Cluster {
       throws AmbariException;
 
   /**
+   * For a given host, will either either update an existing Extension Host Version Entity for the given version, or create
+   * one if it doesn't exist
+   *
+   * @param host Host Entity object
+   * @param repositoryVersion Extension Repository Version that the host is transitioning to
+   * @param extensionId extension information with the version
+   * @return Returns either the newly created or the updated Extension Host Version Entity.
+   * @throws AmbariException
+   */
+  HostExtensionVersionEntity transitionHostExtensionVersionState(HostEntity host,
+      final ExtensionRepositoryVersionEntity repositoryVersion, final ExtensionId extensionId)
+      throws AmbariException;
+
+  /**
    * Update state of a cluster stack version for cluster based on states of host versions and stackids.
    * @param repositoryVersion the repository version entity whose version is a value like 2.2.1.0-100)
    * @throws AmbariException
    */
   void recalculateClusterVersionState(RepositoryVersionEntity repositoryVersion) throws AmbariException;
+
+  /**
+   * Update state of a cluster extension version for cluster based on states of host extension versions and extension ids.
+   * @param repositoryVersion the extension repository version entity whose version is a value like 2.2.1.0-1000)
+   * @throws AmbariException
+   */
+  void recalculateClusterExtensionVersionState(ExtensionRepositoryVersionEntity repositoryVersion) throws AmbariException;
 
   /**
    * Update state of all cluster stack versions for cluster based on states of host versions.
@@ -259,6 +289,20 @@ public interface Cluster {
    * @throws AmbariException
    */
   void transitionClusterVersion(StackId stackId, String version,
+      RepositoryVersionState state) throws AmbariException;
+
+  /**
+   * Transition an existing cluster version from one state to another.
+   *
+   * @param extensionId
+   *          Extension ID
+   * @param version
+   *          Extension version
+   * @param state
+   *          Desired state
+   * @throws AmbariException
+   */
+  void transitionClusterExtensionVersion(ExtensionId extensionId, String version,
       RepositoryVersionState state) throws AmbariException;
 
   /**

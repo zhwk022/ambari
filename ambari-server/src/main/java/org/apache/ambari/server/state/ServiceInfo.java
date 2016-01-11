@@ -27,6 +27,7 @@ import com.google.common.collect.Multimaps;
 import org.apache.ambari.server.api.services.AmbariMetaInfo;
 import org.apache.ambari.server.stack.Validable;
 import org.apache.ambari.server.state.stack.MetricDefinition;
+import org.apache.ambari.server.state.stack.StackRoleCommandOrder;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.map.annotate.JsonFilter;
 
@@ -67,6 +68,7 @@ public class ServiceInfo implements Validable{
   private String version;
   private String comment;
   private String serviceType;
+  boolean extensionService = false;
 
   @XmlTransient
   private List<PropertyInfo> properties;
@@ -138,6 +140,8 @@ public class ServiceInfo implements Validable{
 
   @XmlTransient
   private File widgetsDescriptorFile = null;
+
+  private StackRoleCommandOrder roleCommandOrder;
   
   @XmlTransient
   private boolean valid = true;
@@ -683,6 +687,14 @@ public String getVersion() {
     this.widgetsDescriptorFile = widgetsDescriptorFile;
   }
 
+  public StackRoleCommandOrder getRoleCommandOrder() {
+    return roleCommandOrder;
+  }
+
+  public void setRoleCommandOrder(StackRoleCommandOrder roleCommandOrder) {
+    this.roleCommandOrder = roleCommandOrder;
+  }
+
   /**
    * @return config types this service contains configuration for, but which are primarily related to another service
    */
@@ -769,6 +781,13 @@ public String getVersion() {
     this.themesMap = themesMap;
   }
 
+  public boolean isExtensionService() {
+    return extensionService;
+  }
+
+  public void setExtensionService(boolean extensionService) {
+    this.extensionService = extensionService;
+  }
 
   public List<ServicePropertyInfo> getServicePropertyList() {
     return servicePropertyList;

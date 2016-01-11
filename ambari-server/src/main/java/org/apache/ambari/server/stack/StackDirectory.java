@@ -20,6 +20,7 @@ package org.apache.ambari.server.stack;
 
 import org.apache.ambari.server.AmbariException;
 import org.apache.ambari.server.api.services.AmbariMetaInfo;
+import org.apache.ambari.server.state.stack.ExtensionsXml;
 import org.apache.ambari.server.state.stack.RepositoryXml;
 import org.apache.ambari.server.state.stack.StackMetainfoXml;
 import org.apache.ambari.server.state.stack.StackRoleCommandOrder;
@@ -36,6 +37,7 @@ import javax.xml.bind.JAXBException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -135,6 +137,11 @@ public class StackDirectory extends StackDefinitionDirectory {
    * metainfo file name
    */
   private static final String STACK_METAINFO_FILE_NAME = "metainfo.xml";
+
+  /**
+   * extensions file name
+   */
+  private static final String EXTENSIONS_XML_FILE_NAME = "extensions.xml";
 
   /**
    * upgrades directory name
@@ -274,7 +281,6 @@ public class StackDirectory extends StackDefinitionDirectory {
    *
    * @return object representation of the stack role_command_order.json file
    */
-
   public StackRoleCommandOrder getRoleCommandOrder() {
     return roleCommandOrder;
   }
@@ -493,7 +499,7 @@ public class StackDirectory extends StackDefinitionDirectory {
             ClassLoader.getSystemResource(ROLE_COMMAND_ORDER_FILE));
       }
       roleCommandOrder = new StackRoleCommandOrder(result);
-      parseRoleCommandOrdersForServices();
+      //parseRoleCommandOrdersForServices();
       if (LOG.isDebugEnabled()) {
         LOG.debug("Role Command Order for " + rcoFilePath);
         roleCommandOrder.printRoleCommandOrder(LOG);
@@ -503,7 +509,7 @@ public class StackDirectory extends StackDefinitionDirectory {
     }
   }
 
-  private void parseRoleCommandOrdersForServices() {
+  /*private void parseRoleCommandOrdersForServices() {
     if (rcoFilePath != null) {
       File stack = new File(rcoFilePath).getParentFile();
       File servicesDir = new File(stack, "services");
@@ -530,6 +536,6 @@ public class StackDirectory extends StackDefinitionDirectory {
     } catch (IOException e) {
       LOG.error(String.format("Can not read role command order info %s", rcoFile), e);
     }
-  }
+  }*/
 
 }

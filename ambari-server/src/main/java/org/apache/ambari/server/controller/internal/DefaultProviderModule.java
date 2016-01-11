@@ -70,6 +70,8 @@ public class DefaultProviderModule extends AbstractProviderModule {
         return new ViewInstanceResourceProvider();
       case StackServiceComponentDependency:
         return new StackDependencyResourceProvider(propertyIds, keyPropertyIds);
+      case ExtensionServiceComponentDependency:
+        return new ExtensionDependencyResourceProvider(propertyIds, keyPropertyIds);
       case Permission:
         return new PermissionResourceProvider();
       case AmbariPrivilege:

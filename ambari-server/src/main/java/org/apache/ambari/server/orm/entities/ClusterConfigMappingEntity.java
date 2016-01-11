@@ -28,9 +28,9 @@ import javax.persistence.Table;
 /**
  * Entity that maps to a cluster config mapping.
  */
+@IdClass(ClusterConfigMappingEntityPK.class)
 @Table(name = "clusterconfigmapping")
 @Entity
-@IdClass(ClusterConfigMappingEntityPK.class)
 public class ClusterConfigMappingEntity {
 
   @Id

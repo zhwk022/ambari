@@ -46,6 +46,19 @@ public class ComponentInfo {
   @XmlElements(@XmlElement(name = "versionAdvertised"))
   private boolean versionAdvertised = false;
 
+  @XmlElements(@XmlElement(name = "notPreferableOnServerComponents"))
+  private boolean notPreferableOnServerComponents = false;
+
+  @XmlElements(@XmlElement(name = "notValuable"))
+  private boolean notValuable = false;
+
+  @XmlElements(@XmlElement(name = "useCardinalityForLayout"))
+  private boolean useCardinalityForLayout = false;
+
+  private String layout = null;
+
+  private int idealMinimum = 1;
+
   /**
   * Added at schema ver 2
   */
@@ -104,6 +117,11 @@ public class ComponentInfo {
     deleted = prototype.deleted;
     cardinality = prototype.cardinality;
     versionAdvertised = prototype.versionAdvertised;
+    notPreferableOnServerComponents = prototype.notPreferableOnServerComponents;
+    notValuable = prototype.notValuable;
+    useCardinalityForLayout = prototype.useCardinalityForLayout;
+    layout = prototype.layout;
+    idealMinimum = prototype.idealMinimum;
     clientsToUpdateConfigs = prototype.clientsToUpdateConfigs;
     commandScript = prototype.commandScript;
     customCommands = prototype.customCommands;
@@ -245,6 +263,46 @@ public class ComponentInfo {
 
   public boolean isVersionAdvertised() {
     return versionAdvertised;
+  }
+
+  public boolean isNotPreferableOnServerComponents() {
+    return notPreferableOnServerComponents;
+  }
+
+  public void setNotPreferableOnServerComponents(boolean notPreferableOnServerComponents) {
+    this.notPreferableOnServerComponents = notPreferableOnServerComponents;
+  }
+
+  public boolean isNotValuable() {
+    return notValuable;
+  }
+
+  public void setNotValuable(boolean notValuable) {
+    this.notValuable = notValuable;
+  }
+
+  public boolean isUseCardinalityForLayout() {
+    return useCardinalityForLayout;
+  }
+
+  public void setUseCardinalityForLayout(boolean useCardinalityForLayout) {
+    this.useCardinalityForLayout = useCardinalityForLayout;
+  }
+
+  public String getLayout() {
+    return layout;
+  }
+
+  public void setLayout(String layout) {
+    this.layout = layout;
+  }
+
+  public int getIdealMinimum() {
+    return idealMinimum;
+  }
+
+  public void setIdealMinimum(int idealMinimum) {
+    this.idealMinimum = idealMinimum;
   }
 
   public List<String> getClientsToUpdateConfigs() {

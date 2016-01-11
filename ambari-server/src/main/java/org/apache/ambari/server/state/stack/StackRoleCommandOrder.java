@@ -62,7 +62,6 @@ public class StackRoleCommandOrder {
    *
    * @return role command order content
    */
-
   public HashMap<String, Object> getContent() {
     return content;
   }
@@ -72,7 +71,6 @@ public class StackRoleCommandOrder {
    *
    * @param content role command order content
    */
-
   public void setContent(HashMap<String, Object> content) {
     this.content = content;
   }

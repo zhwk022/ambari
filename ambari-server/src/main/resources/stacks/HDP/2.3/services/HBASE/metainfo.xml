@@ -29,6 +29,7 @@
           <category>SLAVE</category>
           <cardinality>0+</cardinality>
           <versionAdvertised>true</versionAdvertised>
+          <useCardinalityForLayout>true</useCardinalityForLayout>
           <commandScript>
             <script>scripts/phoenix_queryserver.py</script>
             <scriptType>PYTHON</scriptType>

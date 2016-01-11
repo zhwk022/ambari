@@ -50,7 +50,7 @@ import javax.persistence.TableGenerator;
     , initialValue = 0
 )
 @NamedQueries({
-    @NamedQuery(name = "HostEntity.findByHostName", query = "SELECT host FROM HostEntity host WHERE host.hostName = :hostName"),
+    @NamedQuery(name = "HostEntity.findByHostName", query = "SELECT host FROM HostEntity host WHERE host.hostName = :hostName")
 })
 public class HostEntity implements Comparable<HostEntity> {
 
@@ -131,6 +131,9 @@ public class HostEntity implements Comparable<HostEntity> {
 
   @OneToMany(mappedBy = "hostEntity", cascade = CascadeType.REMOVE, fetch = FetchType.LAZY)
   private Collection<HostVersionEntity> hostVersionEntities;
+
+  @OneToMany(mappedBy = "hostEntity", cascade = CascadeType.REMOVE, fetch = FetchType.LAZY)
+  private Collection<HostExtensionVersionEntity> hostExtensionVersionEntities;
 
   @ManyToMany
   @JoinTable(name = "ClusterHostMapping",
@@ -285,7 +288,7 @@ public class HostEntity implements Comparable<HostEntity> {
 
     HostEntity that = (HostEntity) o;
 
-    return getHostId() == that.getHostId() && hostName.equals(that.hostName);
+    return getHostId().equals(that.getHostId()) && hostName.equals(that.hostName);
   }
 
   /**
@@ -398,5 +401,13 @@ public class HostEntity implements Comparable<HostEntity> {
 
   public void setHostVersionEntities(Collection<HostVersionEntity> hostVersionEntities) {
     this.hostVersionEntities = hostVersionEntities;
+  }
+
+  public Collection<HostExtensionVersionEntity> getHostExtensionVersionEntities() {
+    return hostExtensionVersionEntities;
+  }
+
+  public void setHostExtensionVersionEntities(Collection<HostExtensionVersionEntity> hostExtensionVersionEntities) {
+    this.hostExtensionVersionEntities = hostExtensionVersionEntities;
   }
 }

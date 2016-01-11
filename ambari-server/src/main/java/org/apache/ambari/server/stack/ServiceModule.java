@@ -123,6 +123,7 @@ public class ServiceModule extends BaseModule<ServiceModule, ServiceInfo> implem
     serviceInfo.setAlertsFile(serviceDirectory.getAlertsFile());
     serviceInfo.setKerberosDescriptorFile(serviceDirectory.getKerberosDescriptorFile());
     serviceInfo.setWidgetsDescriptorFile(serviceDirectory.getWidgetsDescriptorFile(serviceInfo.getName()));
+    serviceInfo.setRoleCommandOrder(serviceDirectory.getRoleCommandOrder());
     serviceInfo.setSchemaVersion(AmbariMetaInfo.SCHEMA_VERSION_2);
     serviceInfo.setServicePackageFolder(serviceDirectory.getPackageDir());
 
@@ -140,7 +141,7 @@ public class ServiceModule extends BaseModule<ServiceModule, ServiceInfo> implem
 
   @Override
   public void resolve(
-      ServiceModule parentModule, Map<String, StackModule> allStacks, Map<String, ServiceModule> commonServices)
+      ServiceModule parentModule, Map<String, StackModule> allStacks, Map<String, ServiceModule> commonServices, Map<String, ExtensionModule> extensions)
       throws AmbariException {
 
     if (!serviceInfo.isValid() || !parentModule.isValid())
@@ -198,14 +199,16 @@ public class ServiceModule extends BaseModule<ServiceModule, ServiceInfo> implem
     if (serviceInfo.getWidgetsDescriptorFile() == null) {
       serviceInfo.setWidgetsDescriptorFile(parent.getWidgetsDescriptorFile());
     }
+    if (serviceInfo.getRoleCommandOrder() == null) {
+      serviceInfo.setRoleCommandOrder(parent.getRoleCommandOrder());
+    }
 
     mergeCustomCommands(parent.getCustomCommands(), serviceInfo.getCustomCommands());
     mergeConfigDependencies(parent);
-    mergeComponents(parentModule, allStacks, commonServices);
-    mergeConfigurations(parentModule, allStacks, commonServices);
-    mergeThemes(parentModule, allStacks, commonServices);
+    mergeComponents(parentModule, allStacks, commonServices, extensions);
+    mergeConfigurations(parentModule, allStacks, commonServices, extensions);
+    mergeThemes(parentModule, allStacks, commonServices, extensions);
     mergeExcludedConfigTypes(parent);
-
 
     mergeServiceProperties(parent.getServicePropertyList());
 
@@ -255,7 +258,7 @@ public class ServiceModule extends BaseModule<ServiceModule, ServiceInfo> implem
    *
    * @throws AmbariException
    */
-  public void resolveCommonService(Map<String, StackModule> allStacks, Map<String, ServiceModule> commonServices)
+  public void resolveCommonService(Map<String, StackModule> allStacks, Map<String, ServiceModule> commonServices, Map<String, ExtensionModule> extensions)
       throws AmbariException {
     if(!isCommonService) {
       throw new AmbariException("Not a common service");
@@ -273,12 +276,12 @@ public class ServiceModule extends BaseModule<ServiceModule, ServiceInfo> implem
         ServiceModule baseService = commonServices.get(baseServiceKey);
         ModuleState baseModuleState = baseService.getModuleState();
         if (baseModuleState == ModuleState.INIT) {
-          baseService.resolveCommonService(allStacks, commonServices);
+          baseService.resolveCommonService(allStacks, commonServices, extensions);
         } else if (baseModuleState == ModuleState.VISITED) {
           //todo: provide more information to user about cycle
           throw new AmbariException("Cycle detected while parsing common service");
         }
-        resolve(baseService, allStacks, commonServices);
+        resolve(baseService, allStacks, commonServices, extensions);
       } else {
         throw new AmbariException("Common service cannot inherit from a non common service");
       }
@@ -373,8 +376,8 @@ public class ServiceModule extends BaseModule<ServiceModule, ServiceInfo> implem
    * Merge theme modules.
    */
   private void mergeThemes(ServiceModule parent, Map<String, StackModule> allStacks,
-                           Map<String, ServiceModule> commonServices) throws AmbariException {
-    Collection<ThemeModule> mergedModules = mergeChildModules(allStacks, commonServices, themeModules, parent.themeModules);
+                           Map<String, ServiceModule> commonServices, Map<String, ExtensionModule> extensions) throws AmbariException {
+    Collection<ThemeModule> mergedModules = mergeChildModules(allStacks, commonServices, extensions, themeModules, parent.themeModules);
 
     for (ThemeModule mergedModule : mergedModules) {
       themeModules.put(mergedModule.getId(), mergedModule);
@@ -441,13 +444,13 @@ public class ServiceModule extends BaseModule<ServiceModule, ServiceInfo> implem
    * @param commonServices  common service modules
    */
   private void mergeConfigurations(
-      ServiceModule parent, Map<String, StackModule> allStacks, Map<String, ServiceModule> commonServices)
+      ServiceModule parent, Map<String, StackModule> allStacks, Map<String, ServiceModule> commonServices, Map<String, ExtensionModule> extensions)
       throws AmbariException {
     serviceInfo.getProperties().clear();
     serviceInfo.setAllConfigAttributes(new HashMap<String, Map<String, Map<String, String>>>());
 
     Collection<ConfigurationModule> mergedModules = mergeChildModules(
-        allStacks, commonServices, configurationModules, parent.configurationModules);
+        allStacks, commonServices, extensions, configurationModules, parent.configurationModules);
 
     for (ConfigurationModule module : mergedModules) {
       configurationModules.put(module.getId(), module);
@@ -467,11 +470,11 @@ public class ServiceModule extends BaseModule<ServiceModule, ServiceInfo> implem
    * @param commonServices  common service modules
    */
   private void mergeComponents(
-      ServiceModule parent, Map<String, StackModule> allStacks, Map<String, ServiceModule> commonServices)
+      ServiceModule parent, Map<String, StackModule> allStacks, Map<String, ServiceModule> commonServices, Map<String, ExtensionModule> extensions)
       throws AmbariException {
     serviceInfo.getComponents().clear();
     Collection<ComponentModule> mergedModules = mergeChildModules(
-        allStacks, commonServices, componentModules, parent.componentModules);
+        allStacks, commonServices, extensions, componentModules, parent.componentModules);
     componentModules.clear();
     for (ComponentModule module : mergedModules) {
       componentModules.put(module.getId(), module);

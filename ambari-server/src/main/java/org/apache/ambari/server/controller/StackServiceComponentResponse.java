@@ -81,6 +81,19 @@ public class StackServiceComponentResponse {
   private boolean versionAdvertised;
 
   /**
+   * should the component be installed on the same node as server components
+   */
+  private boolean notPreferableOnServerComponents;
+
+  private boolean notValuable;
+
+  private boolean useCardinalityForLayout;
+
+  private String layout = null;
+
+  private int idealMinimum = 1;
+
+  /**
    * auto deploy information
    */
   private AutoDeployInfo autoDeploy;
@@ -105,6 +118,11 @@ public class StackServiceComponentResponse {
     isMaster = component.isMaster();
     cardinality = component.getCardinality();
     versionAdvertised = component.isVersionAdvertised();
+    notPreferableOnServerComponents = component.isNotPreferableOnServerComponents();
+    notValuable = component.isNotValuable();
+    useCardinalityForLayout = component.isUseCardinalityForLayout();
+    layout = component.getLayout();
+    idealMinimum = component.getIdealMinimum();
     autoDeploy = component.getAutoDeploy();
 
     // the custom command names defined for this component
@@ -301,6 +319,45 @@ public class StackServiceComponentResponse {
     this.versionAdvertised = versionAdvertised;
   }
 
+  public boolean isNotPreferableOnServerComponents() {
+    return notPreferableOnServerComponents;
+  }
+
+  public void setNotPreferableOnServerComponents(boolean notPreferableOnServerComponents) {
+    this.notPreferableOnServerComponents = notPreferableOnServerComponents;
+  }
+
+  public boolean isNotValuable() {
+    return notValuable;
+  }
+
+  public void setNotValuable(boolean notValuable) {
+    this.notValuable = notValuable;
+  }
+
+  public boolean isUseCardinalityForLayout() {
+    return useCardinalityForLayout;
+  }
+
+  public void setUseCardinalityForLayout(boolean useCardinalityForLayout) {
+    this.useCardinalityForLayout = useCardinalityForLayout;
+  }
+
+  public String getLayout() {
+    return layout;
+  }
+
+  public void setLayout(String layout) {
+    this.layout = layout;
+  }
+
+  public int getIdealMinimum() {
+    return idealMinimum;
+  }
+
+  public void setIdealMinimum(int idealMinimum) {
+    this.idealMinimum = idealMinimum;
+  }
 
   /**
    * Get auto deploy information.

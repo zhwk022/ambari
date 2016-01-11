@@ -100,6 +100,7 @@ public class RequestImpl implements Request {
   public RequestImpl(Set<String> propertyIds, Set<Map<String, Object>> properties,
                      Map<String, String> requestInfoProperties, Map<String, TemporalInfo> mapTemporalInfo,
                      SortRequest sortRequest, PageRequest pageRequest) {
+
     this.propertyIds = propertyIds == null ?
         Collections.unmodifiableSet(new HashSet<String>()) :
         Collections.unmodifiableSet(propertyIds);

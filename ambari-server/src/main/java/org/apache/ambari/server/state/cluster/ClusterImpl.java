@@ -61,11 +61,15 @@ import org.apache.ambari.server.orm.cache.HostConfigMapping;
 import org.apache.ambari.server.orm.dao.AlertDefinitionDAO;
 import org.apache.ambari.server.orm.dao.AlertDispatchDAO;
 import org.apache.ambari.server.orm.dao.ClusterDAO;
+import org.apache.ambari.server.orm.dao.ClusterExtensionVersionDAO;
 import org.apache.ambari.server.orm.dao.ClusterStateDAO;
 import org.apache.ambari.server.orm.dao.ClusterVersionDAO;
 import org.apache.ambari.server.orm.dao.ConfigGroupHostMappingDAO;
+import org.apache.ambari.server.orm.dao.ExtensionRepositoryVersionDAO;
+import org.apache.ambari.server.orm.dao.HostComponentDesiredStateDAO;
 import org.apache.ambari.server.orm.dao.HostConfigMappingDAO;
 import org.apache.ambari.server.orm.dao.HostDAO;
+import org.apache.ambari.server.orm.dao.HostExtensionVersionDAO;
 import org.apache.ambari.server.orm.dao.HostVersionDAO;
 import org.apache.ambari.server.orm.dao.RepositoryVersionDAO;
 import org.apache.ambari.server.orm.dao.ServiceConfigDAO;
@@ -75,12 +79,17 @@ import org.apache.ambari.server.orm.dao.UpgradeDAO;
 import org.apache.ambari.server.orm.entities.ClusterConfigEntity;
 import org.apache.ambari.server.orm.entities.ClusterConfigMappingEntity;
 import org.apache.ambari.server.orm.entities.ClusterEntity;
+import org.apache.ambari.server.orm.entities.ClusterExtensionVersionEntity;
 import org.apache.ambari.server.orm.entities.ClusterServiceEntity;
 import org.apache.ambari.server.orm.entities.ClusterStateEntity;
 import org.apache.ambari.server.orm.entities.ClusterVersionEntity;
 import org.apache.ambari.server.orm.entities.ConfigGroupEntity;
+import org.apache.ambari.server.orm.entities.ExtensionEntity;
+import org.apache.ambari.server.orm.entities.ExtensionRepositoryVersionEntity;
+import org.apache.ambari.server.orm.entities.HostComponentDesiredStateEntity;
 import org.apache.ambari.server.orm.entities.HostComponentStateEntity;
 import org.apache.ambari.server.orm.entities.HostEntity;
+import org.apache.ambari.server.orm.entities.HostExtensionVersionEntity;
 import org.apache.ambari.server.orm.entities.HostVersionEntity;
 import org.apache.ambari.server.orm.entities.PermissionEntity;
 import org.apache.ambari.server.orm.entities.PrivilegeEntity;
@@ -99,6 +108,8 @@ import org.apache.ambari.server.state.Config;
 import org.apache.ambari.server.state.ConfigFactory;
 import org.apache.ambari.server.state.ConfigHelper;
 import org.apache.ambari.server.state.DesiredConfig;
+import org.apache.ambari.server.state.ExtensionId;
+import org.apache.ambari.server.state.ExtensionInfo;
 import org.apache.ambari.server.state.Host;
 import org.apache.ambari.server.state.HostHealthStatus;
 import org.apache.ambari.server.state.HostState;
@@ -204,10 +215,19 @@ public class ClusterImpl implements Cluster {
   private ClusterVersionDAO clusterVersionDAO;
 
   @Inject
+  private ClusterExtensionVersionDAO clusterExtensionVersionDAO;
+
+  @Inject
   private HostDAO hostDAO;
 
   @Inject
+  private HostComponentDesiredStateDAO hostComponentDesiredStateDAO;
+
+  @Inject
   private HostVersionDAO hostVersionDAO;
+
+  @Inject
+  private HostExtensionVersionDAO hostExtensionVersionDAO;
 
   @Inject
   private ServiceFactory serviceFactory;
@@ -250,6 +270,9 @@ public class ClusterImpl implements Cluster {
 
   @Inject
   private RepositoryVersionDAO repositoryVersionDAO;
+
+  @Inject
+  private ExtensionRepositoryVersionDAO extensionRepositoryVersionDAO;
 
   @Inject
   private Configuration configuration;
@@ -1076,6 +1099,15 @@ public class ClusterImpl implements Cluster {
   }
 
   /**
+   * Get all of the ClusterVersionEntity objects for the cluster.
+   * @return
+   */
+  @Override
+  public Collection<ClusterExtensionVersionEntity> getAllClusterExtensionVersions(String extensionName) {
+    return clusterExtensionVersionDAO.findByClusterAndExtensionName(getClusterName(), extensionName);
+  }
+
+  /**
    * During the Finalize Action, want to transition all Host Versions from UPGRADED to CURRENT, and the last CURRENT one to INSTALLED.
    * @param hostNames Collection of host names
    * @param currentClusterVersion Entity that contains the cluster's current stack (with its name and version)
@@ -1441,6 +1473,146 @@ public class ClusterImpl implements Cluster {
   }
 
   /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void recalculateClusterExtensionVersionState(ExtensionRepositoryVersionEntity repositoryVersion) throws AmbariException {
+    if (repositoryVersion == null) {
+      return;
+    }
+
+    ExtensionId extensionId = repositoryVersion.getExtensionId();
+    String version = repositoryVersion.getVersion();
+
+    //Map<String, Host> hosts = clusters.getHostsForCluster(getClusterName());
+    List<HostComponentDesiredStateEntity> hosts = hostComponentDesiredStateDAO.findByExtension(repositoryVersion.getExtension());
+    clusterGlobalLock.writeLock().lock();
+
+    try {
+      // Part 1, bootstrap cluster version if necessary.
+
+      ClusterExtensionVersionEntity clusterExtensionVersion = clusterExtensionVersionDAO.findByClusterAndExtensionAndVersion(
+          getClusterName(), extensionId, version);
+
+      boolean performingInitialBootstrap = false;
+      if (clusterExtensionVersion == null) {
+        if (clusterExtensionVersionDAO.findByClusterAndExtensionName(getClusterName(), extensionId.getExtensionName()).isEmpty()) {
+          // During the initial add of an extension service it will not exist, so bootstrap it.
+          performingInitialBootstrap = true;
+          createClusterExtensionVersionInternal(
+              extensionId,
+              version,
+              AuthorizationHelper.getAuthenticatedName(configuration.getAnonymousAuditName()),
+              RepositoryVersionState.INSTALLING);
+          clusterExtensionVersion = clusterExtensionVersionDAO.findByClusterAndExtensionAndVersion(
+              getClusterName(), extensionId, version);
+
+          if (clusterExtensionVersion == null) {
+            LOG.warn(String.format(
+                "Could not create a cluster extension version for cluster %s and extension %s using repo version %s",
+                getClusterName(), extensionId.getExtensionId(), repositoryVersion));
+            return;
+          }
+        } else {
+          LOG.warn(String.format(
+              "Repository version %s not found for cluster %s",
+              repositoryVersion, getClusterName()));
+          return;
+        }
+      }
+
+      // Ignore if cluster version is CURRENT or UPGRADE_FAILED
+      if (clusterExtensionVersion.getState() != RepositoryVersionState.INSTALL_FAILED &&
+              clusterExtensionVersion.getState() != RepositoryVersionState.OUT_OF_SYNC &&
+              clusterExtensionVersion.getState() != RepositoryVersionState.INSTALLING &&
+              clusterExtensionVersion.getState() != RepositoryVersionState.INSTALLED &&
+              clusterExtensionVersion.getState() != RepositoryVersionState.UPGRADING &&
+              clusterExtensionVersion.getState() != RepositoryVersionState.UPGRADED) {
+        // anything else is not supported as of now
+        return;
+      }
+
+      // Part 2, check for transitions.
+      Set<String> hostsWithoutHostVersion = new HashSet<String>();
+      Map<RepositoryVersionState, Set<String>> stateToHosts = new HashMap<RepositoryVersionState, Set<String>>();
+
+      //hack until better hostversion integration into in-memory cluster structure
+
+      List<HostExtensionVersionEntity> hostExtensionVersionEntities =
+              hostExtensionVersionDAO.findByClusterExtensionAndVersion(getClusterName(), extensionId, version);
+
+      Set<String> hostsWithState = new HashSet<String>();
+      for (HostExtensionVersionEntity hostExtensionVersionEntity : hostExtensionVersionEntities) {
+        String hostname = hostExtensionVersionEntity.getHostEntity().getHostName();
+        hostsWithState.add(hostname);
+        RepositoryVersionState hostState = hostExtensionVersionEntity.getState();
+
+        if (stateToHosts.containsKey(hostState)) {
+          stateToHosts.get(hostState).add(hostname);
+        } else {
+          Set<String> hostsInState = new HashSet<String>();
+          hostsInState.add(hostname);
+          stateToHosts.put(hostState, hostsInState);
+        }
+      }
+
+      for (HostComponentDesiredStateEntity host : hosts) {
+        hostsWithoutHostVersion.add(host.getHostEntity().getHostName());
+      }
+      hostsWithoutHostVersion.removeAll(hostsWithState);
+
+      // Ensure that all of the hosts without a Host Version only have
+      // Components that do not advertise a version.
+      // Otherwise, operations are still in progress.
+      for (String hostname : hostsWithoutHostVersion) {
+        HostEntity hostEntity = hostDAO.findByName(hostname);
+
+        // During initial bootstrap, unhealthy hosts are ignored
+        // so we boostrap the CURRENT version anyway
+        if (performingInitialBootstrap &&
+                hostEntity.getHostStateEntity().getCurrentState() != HostState.HEALTHY) {
+          continue;
+        }
+
+        final Collection<HostComponentStateEntity> allHostComponents = hostEntity.getHostComponentStateEntities();
+
+        for (HostComponentStateEntity hostComponentStateEntity : allHostComponents) {
+          if (hostComponentStateEntity.getVersion().equalsIgnoreCase(
+              State.UNKNOWN.toString())) {
+            // Some Components cannot advertise a version. E.g., ZKF, AMBARI_METRICS,
+            // Kerberos
+            ComponentInfo compInfo = ambariMetaInfo.getExtensionComponentSafe(
+                extensionId.getExtensionName(), extensionId.getExtensionVersion(),
+                hostComponentStateEntity.getServiceName(),
+                hostComponentStateEntity.getComponentName());
+
+            if (compInfo != null && compInfo.isVersionAdvertised()) {
+              LOG.debug("Skipping transitioning the cluster extension version because host "
+                  + hostname + " does not have a version yet.");
+              return;
+            }
+          }
+        }
+      }
+
+      RepositoryVersionState effectiveClusterVersionState = getEffectiveState(stateToHosts);
+      if (effectiveClusterVersionState != null
+          && effectiveClusterVersionState != clusterExtensionVersion.getState()) {
+        // Any mismatch will be caught while transitioning, and raise an
+        // exception.
+        try {
+          transitionClusterExtensionVersion(extensionId, version,
+              effectiveClusterVersionState);
+        } catch (AmbariException e) {
+          ;
+        }
+      }
+    } finally {
+      clusterGlobalLock.writeLock().unlock();
+    }
+  }
+
+  /**
    * Transition the Host Version across states.
    * @param host Host object
    * @param repositoryVersion Repository Version with stack and version information
@@ -1502,6 +1674,67 @@ public class ClusterImpl implements Cluster {
     return hostVersionEntity;
   }
 
+  /**
+   * Transition the Host Version across states.
+   * @param host Host object
+   * @param repositoryVersion Repository Version with stack and version information
+   * @param stack Stack information
+   * @throws AmbariException
+   */
+  @Override
+  @Transactional
+  public HostExtensionVersionEntity transitionHostExtensionVersionState(HostEntity host, final ExtensionRepositoryVersionEntity repositoryVersion, final ExtensionId extension) throws AmbariException {
+    ExtensionEntity repoVersionExtensionEntity = repositoryVersion.getExtension();
+    ExtensionId repoVersionExtensionId = new ExtensionId(repoVersionExtensionEntity);
+
+    HostExtensionVersionEntity hostExtensionVersionEntity = hostExtensionVersionDAO.findByClusterExtensionVersionAndHost(
+        getClusterName(), repoVersionExtensionId, repositoryVersion.getVersion(), host.getHostName());
+
+    hostTransitionStateWriteLock.lock();
+    try {
+      // Create one if it doesn't already exist. It will be possible to make further transitions below.
+      boolean performingInitialBootstrap = false;
+      if (hostExtensionVersionEntity == null) {
+        if (hostExtensionVersionDAO.findByClusterAndHost(getClusterName(), host.getHostName()).isEmpty()) {
+          // That is an initial bootstrap
+          performingInitialBootstrap = true;
+        }
+        hostExtensionVersionEntity = new HostExtensionVersionEntity(host, repositoryVersion, RepositoryVersionState.UPGRADING);
+        hostExtensionVersionDAO.create(hostExtensionVersionEntity);
+      }
+
+      HostExtensionVersionEntity currentVersionEntity = hostExtensionVersionDAO.findByHostAndStateCurrent(getClusterName(), host.getHostName());
+      boolean isCurrentPresent = (currentVersionEntity != null);
+      final ServiceComponentHostSummary hostSummary = new ServiceComponentHostSummary(ambariMetaInfo, host, extension);
+
+      if (!isCurrentPresent) {
+        // Transition from UPGRADING -> CURRENT. This is allowed because Host Version Entity is bootstrapped in an UPGRADING state.
+        // Alternatively, transition to CURRENT during initial bootstrap if at least one host component advertised a version
+        if (hostSummary.isUpgradeFinished() && hostExtensionVersionEntity.getState().equals(RepositoryVersionState.UPGRADING) || performingInitialBootstrap) {
+          hostExtensionVersionEntity.setState(RepositoryVersionState.CURRENT);
+          hostExtensionVersionDAO.merge(hostExtensionVersionEntity);
+        }
+      } else {
+        // Handle transitions during a Rolling Upgrade
+
+        // If a host only has one Component to update, that single report can still transition the host version from
+        // INSTALLED->UPGRADING->UPGRADED in one shot.
+        if (hostSummary.isUpgradeInProgress(currentVersionEntity.getRepositoryVersion().getVersion()) && hostExtensionVersionEntity.getState().equals(RepositoryVersionState.INSTALLED)) {
+          hostExtensionVersionEntity.setState(RepositoryVersionState.UPGRADING);
+          hostExtensionVersionDAO.merge(hostExtensionVersionEntity);
+        }
+
+        if (hostSummary.isUpgradeFinished() && hostExtensionVersionEntity.getState().equals(RepositoryVersionState.UPGRADING)) {
+          hostExtensionVersionEntity.setState(RepositoryVersionState.UPGRADED);
+          hostExtensionVersionDAO.merge(hostExtensionVersionEntity);
+        }
+      }
+    } finally {
+      hostTransitionStateWriteLock.unlock();
+    }
+    return hostExtensionVersionEntity;
+  }
+
   @Override
   public void recalculateAllClusterVersionStates() throws AmbariException {
     clusterGlobalLock.writeLock().lock();
@@ -1512,8 +1745,10 @@ public class ClusterImpl implements Cluster {
         RepositoryVersionEntity repositoryVersionEntity = clusterVersionEntity.getRepositoryVersion();
         StackId repoVersionStackId = repositoryVersionEntity.getStackId();
 
-        if (repoVersionStackId.equals(currentStackId)
-            && clusterVersionEntity.getState() != RepositoryVersionState.CURRENT) {
+        StackEntity stackEntity = clusterVersionEntity.getRepositoryVersion().getStack();
+        if (stackEntity.getStackName().equals(currentStackId.getStackName())
+                && stackEntity.getStackVersion().equals(currentStackId.getStackVersion())
+                && clusterVersionEntity.getState() != RepositoryVersionState.CURRENT) {
           recalculateClusterVersionState(clusterVersionEntity.getRepositoryVersion());
         }
       }
@@ -1571,6 +1806,47 @@ public class ClusterImpl implements Cluster {
 
     ClusterVersionEntity clusterVersionEntity = new ClusterVersionEntity(clusterEntity, repositoryVersionEntity, state, System.currentTimeMillis(), System.currentTimeMillis(), userName);
     clusterVersionDAO.create(clusterVersionEntity);
+  }
+
+  /**
+   * See {@link #createClusterVersion}
+   *
+   * This method is intended to be called only when cluster lock is already acquired.
+   */
+  private void createClusterExtensionVersionInternal(ExtensionId extensionId, String version,
+      String userName, RepositoryVersionState state) throws AmbariException {
+    Set<RepositoryVersionState> allowedStates = new HashSet<RepositoryVersionState>();
+    /*Collection<ClusterExtensionVersionEntity> allClusterExtensionVersions = getAllClusterExtensionVersions(extensionId.getExtensionName());
+    if (allClusterExtensionVersions == null || allClusterExtensionVersions.isEmpty()) {
+      allowedStates.add(RepositoryVersionState.UPGRADING);
+    } else {
+      allowedStates.add(RepositoryVersionState.INSTALLING);
+    }*/
+    allowedStates.add(RepositoryVersionState.INSTALLING);
+
+    if (!allowedStates.contains(state)) {
+      throw new AmbariException("The allowed state for a new cluster version must be within " + allowedStates);
+    }
+
+    ClusterExtensionVersionEntity existing = clusterExtensionVersionDAO.findByClusterAndExtensionAndVersion(
+        getClusterName(), extensionId, version);
+    if (existing != null) {
+      throw new DuplicateResourceException(
+          "Duplicate item, a cluster extension version with extension=" + extensionId
+              + ", version=" +
+          version + " for cluster " + getClusterName() + " already exists");
+    }
+
+    ExtensionRepositoryVersionEntity extensionRepositoryVersionEntity = extensionRepositoryVersionDAO.findByExtensionAndVersion(
+        extensionId, version);
+    if (extensionRepositoryVersionEntity == null) {
+      LOG.warn("Could not find extension repository version for extension=" + extensionId
+          + ", version=" + version);
+      return;
+    }
+
+    ClusterExtensionVersionEntity clusterExtensionVersionEntity = new ClusterExtensionVersionEntity(clusterEntity, extensionRepositoryVersionEntity, state, System.currentTimeMillis(), System.currentTimeMillis(), userName);
+    clusterExtensionVersionDAO.create(clusterExtensionVersionEntity);
   }
 
   /**
@@ -1737,6 +2013,173 @@ public class ClusterImpl implements Cluster {
   }
 
   /**
+   * Transition an existing cluster version from one state to another. The
+   * following are some of the steps that are taken when transitioning between
+   * specific states:
+   * <ul>
+   * <li>UPGRADING/UPGRADED --> CURRENT</lki>: Set the current stack to the
+   * desired stack, ensure all hosts with the desired stack are CURRENT as well.
+   * </ul>
+   * <li>UPGRADING/UPGRADED --> CURRENT</lki>: Set the current stack to the
+   * desired stack. </ul>
+   *
+   * @param extensionId
+   *          Extension ID
+   * @param version
+   *          Extension version
+   * @param state
+   *          Desired state
+   * @throws AmbariException
+   */
+  @Override
+  @Transactional
+  public void transitionClusterExtensionVersion(ExtensionId extensionId, String version,
+      RepositoryVersionState state) throws AmbariException {
+    Set<RepositoryVersionState> allowedStates = new HashSet<RepositoryVersionState>();
+    clusterGlobalLock.writeLock().lock();
+    try {
+      ClusterExtensionVersionEntity existingClusterExtensionVersion = clusterExtensionVersionDAO.findByClusterAndExtensionAndVersion(
+          getClusterName(), extensionId, version);
+
+      if (existingClusterExtensionVersion == null) {
+        throw new AmbariException(
+            "Existing cluster extension version not found for cluster="
+                + getClusterName() + ", extension=" + extensionId + ", version="
+                + version);
+      }
+
+      // NOOP
+      if (existingClusterExtensionVersion.getState() == state) {
+        return;
+      }
+
+      switch (existingClusterExtensionVersion.getState()) {
+        case CURRENT:
+          // If CURRENT state is changed here cluster will not have CURRENT
+          // state.
+          // CURRENT state will be changed to INSTALLED when another CURRENT
+          // state is added.
+          // allowedStates.add(RepositoryVersionState.INSTALLED);
+          break;
+        case INSTALLING:
+          allowedStates.add(RepositoryVersionState.INSTALLED);
+          allowedStates.add(RepositoryVersionState.INSTALL_FAILED);
+          allowedStates.add(RepositoryVersionState.OUT_OF_SYNC);
+          break;
+        case INSTALL_FAILED:
+          allowedStates.add(RepositoryVersionState.INSTALLING);
+          break;
+        case INSTALLED:
+          allowedStates.add(RepositoryVersionState.INSTALLING);
+          allowedStates.add(RepositoryVersionState.UPGRADING);
+          allowedStates.add(RepositoryVersionState.OUT_OF_SYNC);
+          break;
+        case OUT_OF_SYNC:
+          allowedStates.add(RepositoryVersionState.INSTALLING);
+          break;
+        case UPGRADING:
+          allowedStates.add(RepositoryVersionState.UPGRADED);
+          allowedStates.add(RepositoryVersionState.UPGRADE_FAILED);
+          if (clusterExtensionVersionDAO.findByClusterAndExtensionNameAndStateCurrent(getClusterName(), extensionId.getExtensionName()) == null) {
+            allowedStates.add(RepositoryVersionState.CURRENT);
+          }
+          break;
+        case UPGRADED:
+          allowedStates.add(RepositoryVersionState.CURRENT);
+          break;
+        case UPGRADE_FAILED:
+          allowedStates.add(RepositoryVersionState.UPGRADING);
+          break;
+      }
+
+      if (!allowedStates.contains(state)) {
+        throw new AmbariException("Invalid cluster extension version transition from "
+            + existingClusterExtensionVersion.getState() + " to " + state);
+      }
+
+      // There must be at most one cluster extension version for any extension name whose state is CURRENT at
+      // all times.
+      if (state == RepositoryVersionState.CURRENT) {
+        ClusterExtensionVersionEntity currentExtensionVersion = clusterExtensionVersionDAO.findByClusterAndExtensionNameAndStateCurrent(getClusterName(), extensionId.getExtensionName());
+        if (currentExtensionVersion != null) {
+          currentExtensionVersion.setState(RepositoryVersionState.INSTALLED);
+          clusterExtensionVersionDAO.merge(currentExtensionVersion);
+        }
+      }
+
+      existingClusterExtensionVersion.setState(state);
+      existingClusterExtensionVersion.setEndTime(System.currentTimeMillis());
+      clusterExtensionVersionDAO.merge(existingClusterExtensionVersion);
+
+      if (state == RepositoryVersionState.CURRENT) {
+        for (HostEntity hostEntity : clusterEntity.getHostEntities()) {
+          if (hostHasReportables(existingClusterExtensionVersion.getRepositoryVersion(),
+              hostEntity)) {
+            continue;
+          }
+
+          Collection<HostExtensionVersionEntity> versions = hostExtensionVersionDAO.findByHost(hostEntity.getHostName());
+
+          HostExtensionVersionEntity target = null;
+          if (null != versions) {
+            // Set anything that was previously marked CURRENT as INSTALLED, and
+            // the matching version as CURRENT
+            for (HostExtensionVersionEntity entity : versions) {
+              if (entity.getRepositoryVersion().getId().equals(
+		    existingClusterExtensionVersion.getRepositoryVersion().getId())) {
+                target = entity;
+                target.setState(state);
+                hostExtensionVersionDAO.merge(target);
+              } else if (entity.getState() == RepositoryVersionState.CURRENT) {
+                entity.setState(RepositoryVersionState.INSTALLED);
+                hostExtensionVersionDAO.merge(entity);
+              }
+            }
+          }
+
+          if (null == target) {
+            // If no matching version was found, create one with the desired
+            // state
+		  HostExtensionVersionEntity heve = new HostExtensionVersionEntity(hostEntity,
+                existingClusterExtensionVersion.getRepositoryVersion(), state);
+
+            hostExtensionVersionDAO.create(heve);
+          }
+        }
+
+        // when setting the cluster's state to current, we must also
+        // bring the desired stack and current stack in line with each other
+        /*StackEntity desiredStackEntity = clusterEntity.getDesiredStack();
+        StackInfo desiredStack = ambariMetaInfo.getStack(desiredStackEntity.getStackName(), desiredStackEntity.getStackVersion());
+        ExtensionInfo desiredExtension = desiredStack.getExtension(extensionId.getExtensionName());
+        ExtensionId desiredExtensionId = new ExtensionId(desiredExtension);
+
+        // if the desired extension ID doesn't match the target when setting the
+        // cluster to CURRENT, then there's a problem
+        if (!desiredExtensionId.equals(extensionId)) {
+          String message = MessageFormat.format(
+              "The desired extension ID {0} must match {1} when transitioning the cluster''s state to {2}",
+              desiredExtensionId, extensionId, RepositoryVersionState.CURRENT);
+
+          throw new AmbariException(message);
+        }*/
+
+        // TODO - do we need to do something like this?
+        //setCurrentStackVersion(extensionId);
+      }
+    } catch (RollbackException e) {
+      String message = MessageFormat.format(
+          "Unable to transition stack {0} at version {1} for cluster {2} to state {3}",
+          extensionId, version, getClusterName(), state);
+
+      LOG.warn(message);
+      throw new AmbariException(message, e);
+    } finally {
+      clusterGlobalLock.writeLock().unlock();
+    }
+  }
+
+  /**
    * Checks if the host has any components reporting version information.
    * @param repoVersion the repo version
    * @param host        the host entity
@@ -1754,6 +2197,30 @@ public class ClusterImpl implements Cluster {
           hcse.getComponentName());
 
       if (ci.isVersionAdvertised()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Checks if the host has any extension components reporting version information.
+   * @param repoVersion the extension repo version
+   * @param host        the host entity
+   * @return {@code true} if the host has any extension component that report version
+   * @throws AmbariException
+   */
+  private boolean hostHasReportables(ExtensionRepositoryVersionEntity repoVersion, HostEntity host)
+      throws AmbariException {
+
+    for (HostComponentStateEntity hcse : host.getHostComponentStateEntities()) {
+      ComponentInfo ci = ambariMetaInfo.getExtensionComponent(
+          repoVersion.getExtensionName(),
+          repoVersion.getExtensionVersion(),
+          hcse.getServiceName(),
+          hcse.getComponentName());
+
+      if (ci != null && ci.isVersionAdvertised()) {
         return true;
       }
     }

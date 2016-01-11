@@ -47,6 +47,9 @@ import org.apache.ambari.server.state.State;
     @NamedQuery(name = "HostComponentDesiredStateEntity.findByHost", query =
         "SELECT hcds from HostComponentDesiredStateEntity hcds WHERE hcds.hostEntity.hostName=:hostName"),
 
+    @NamedQuery(name = "HostComponentDesiredStateEntity.findByExtension", query =
+        "SELECT hcds from HostComponentDesiredStateEntity hcds WHERE hcds.desiredExtension.extensionId=:extensionId"),
+
     @NamedQuery(name = "HostComponentDesiredStateEntity.findByService", query =
         "SELECT hcds from HostComponentDesiredStateEntity hcds WHERE hcds.serviceName=:serviceName"),
 
@@ -90,6 +93,13 @@ public class HostComponentDesiredStateEntity {
   @OneToOne
   @JoinColumn(name = "desired_stack_id", unique = false, nullable = false)
   private StackEntity desiredStack;
+
+  /**
+   * Unidirectional one-to-one association to {@link ExtensionEntity}
+   */
+  @OneToOne
+  @JoinColumn(name = "desired_extension_id", unique = false, nullable = true, insertable = true, updatable = true)
+  private ExtensionEntity desiredExtension;
 
   @Enumerated(value = EnumType.STRING)
   @Column(name = "admin_state", nullable = true, insertable = true, updatable = true)
@@ -163,6 +173,14 @@ public class HostComponentDesiredStateEntity {
 
   public void setDesiredStack(StackEntity desiredStack) {
     this.desiredStack = desiredStack;
+  }
+
+  public ExtensionEntity getDesiredExtension() {
+    return desiredExtension;
+  }
+
+  public void setDesiredExtension(ExtensionEntity desiredExtension) {
+    this.desiredExtension = desiredExtension;
   }
 
   public HostComponentAdminState getAdminState() {

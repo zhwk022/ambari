@@ -183,4 +183,55 @@ public class RepositoryVersionHelper {
     throw new AmbariException("There were no suitable upgrade packs for stack " + stackName + " " + stackVersion +
         ((null != upgradeType) ? " and upgrade type " + upgradeType : ""));
   }
+
+  /**
+   * Scans the given extension for upgrade packages which can be applied to update the cluster to given repository version.
+   *
+   * @param extensionName extension name
+   * @param extensionVersion extension version
+   * @param repositoryVersion target repository version
+   * @param upgradeType if not {@code null} null, will only return upgrade packs whose type matches.
+   * @return upgrade pack name
+   * @throws AmbariException if no upgrade packs suit the requirements
+   */
+  public String getExtensionUpgradePackageName(String extensionName, String extensionVersion, String repositoryVersion, UpgradeType upgradeType) throws AmbariException {
+    final Map<String, UpgradePack> upgradePacks = ambariMetaInfo.getExtensionUpgradePacks(extensionName, extensionVersion);
+    for (UpgradePack upgradePack : upgradePacks.values()) {
+      final String upgradePackName = upgradePack.getName();
+
+      if (null != upgradeType && upgradePack.getType() != upgradeType) {
+        continue;
+      }
+
+      // check that upgrade pack has <target> node
+      if (StringUtils.isBlank(upgradePack.getTarget())) {
+        LOG.error("Upgrade pack " + upgradePackName + " is corrupted, it should contain <target> node");
+        continue;
+      }
+      if (upgradePack.canBeApplied(repositoryVersion)) {
+        return upgradePackName;
+      }
+    }
+    throw new AmbariException("There were no suitable upgrade packs for extension " + extensionName + " " + extensionVersion +
+        ((null != upgradeType) ? " and upgrade type " + upgradeType : ""));
+  }
+
+  /**
+   * Scans the given extension for upgrade packages which can be applied to update the cluster to given repository version.
+   * Returns NONE if there were no suitable packages.
+   *
+   * @param extensionName extension name
+   * @param extensionVersion extension version
+   * @param repositoryVersion target repository version
+   * @param upgradeType if not {@code null} null, will only return upgrade packs whose type matches.
+   * @return upgrade pack name or NONE
+   */
+  public String getExtensionUpgradePackageNameSafe(String extensionName, String extensionVersion, String repositoryVersion, UpgradeType upgradeType) {
+    try {
+      return getExtensionUpgradePackageName(extensionName, extensionVersion, repositoryVersion, upgradeType);
+    } catch (AmbariException ex) {
+      return "NONE";
+    }
+  }
+
 }

@@ -47,14 +47,13 @@ public class StackServiceDirectory extends ServiceDirectory {
 
   @Override
   /**
-   * Parse stack service directory.
+   * Calculate the package directory for the stack service.
    * packageDir Format: stacks/<stackName>/<stackVersion>/services/<serviceName>/package
    * Example:
    *  directory: "/var/lib/ambari-server/resources/stacks/HDP/2.0.6/services/HDFS"
    *  packageDir: "stacks/HDP/2.0.6/services/HDFS/package"
-   * @throws AmbariException if unable to parse the service directory
    */
-  protected void parsePath() throws AmbariException {
+  protected void calculatePackageDir() {
     File serviceDir = new File(getAbsolutePath());
     File stackVersionDir = serviceDir.getParentFile().getParentFile();
     File stackDir = stackVersionDir.getParentFile();
@@ -78,6 +77,6 @@ public class StackServiceDirectory extends ServiceDirectory {
       LOG.debug(String.format("Service package folder %s for service %s for stack %s does not exist.",
               absPackageDir, serviceDir.getName(), stackId));
     }
-    parseMetaInfoFile();
+    //parseMetaInfoFile();
   }
 }

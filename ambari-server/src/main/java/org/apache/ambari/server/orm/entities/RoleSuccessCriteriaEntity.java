@@ -32,6 +32,7 @@ import org.apache.ambari.server.Role;
 
 @IdClass(org.apache.ambari.server.orm.entities.RoleSuccessCriteriaEntityPK.class)
 @Table(name = "role_success_criteria")
+
 @Entity
 public class RoleSuccessCriteriaEntity {
 

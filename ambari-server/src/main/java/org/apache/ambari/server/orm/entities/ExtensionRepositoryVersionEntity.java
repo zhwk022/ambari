@@ -1,0 +1,251 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.ambari.server.orm.entities;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.Lob;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
+import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
+import javax.persistence.TableGenerator;
+import javax.persistence.UniqueConstraint;
+
+import org.apache.ambari.server.StaticallyInject;
+import org.apache.ambari.server.state.ExtensionId;
+import org.apache.ambari.server.state.stack.upgrade.RepositoryVersionHelper;
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.inject.Inject;
+import com.google.inject.Provider;
+
+@Entity
+@Table(name = "extension_repo_version", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"display_name"}),
+    @UniqueConstraint(columnNames = {"extension", "version"})
+})
+@TableGenerator(name = "extension_repository_version_id_generator",
+    table = "ambari_sequences",
+    pkColumnName = "sequence_name",
+    valueColumnName = "sequence_value",
+    pkColumnValue = "extension_repo_version_id_seq",
+    initialValue = 0
+    )
+@NamedQueries({
+    @NamedQuery(name = "extensionRepositoryVersionByDisplayName", query = "SELECT repoversion FROM ExtensionRepositoryVersionEntity repoversion WHERE repoversion.displayName=:displayname"),
+    @NamedQuery(name = "repositoryVersionByExtension", query = "SELECT repoversion FROM ExtensionRepositoryVersionEntity repoversion WHERE repoversion.extension.extensionName=:extensionName AND repoversion.extension.extensionVersion=:extensionVersion"),
+        @NamedQuery(name = "repositoryVersionByExtensionNameAndVersion", query = "SELECT repoversion FROM ExtensionRepositoryVersionEntity repoversion WHERE repoversion.extension.extensionName=:extensionName AND repoversion.version=:version")
+})
+@StaticallyInject
+public class ExtensionRepositoryVersionEntity {
+
+  private static Logger LOG = LoggerFactory.getLogger(ExtensionRepositoryVersionEntity.class);
+
+  @Inject
+  private static Provider<RepositoryVersionHelper> repositoryVersionHelperProvider;
+
+  @Id
+  @Column(name = "repo_version_id")
+  @GeneratedValue(strategy = GenerationType.TABLE, generator = "extension_repository_version_id_generator")
+  private Long id;
+
+  /**
+   * Unidirectional one-to-one association to {@link ExtensionEntity}
+   */
+  @OneToOne
+  @JoinColumn(name = "extension_id", unique = false, nullable = false, insertable = true, updatable = true)
+  private ExtensionEntity extension;
+
+  @Column(name = "version")
+  private String version;
+
+  @Column(name = "display_name")
+  private String displayName;
+
+  @Column(name = "upgrade_package")
+  private String upgradePackage;
+
+  @Lob
+  @Column(name = "repositories")
+  private String operatingSystems;
+
+  // ----- ExtensionRepositoryVersionEntity -------------------------------------------------------
+
+  public ExtensionRepositoryVersionEntity() {
+
+  }
+
+  public ExtensionRepositoryVersionEntity(ExtensionEntity extension, String version,
+      String displayName, String operatingSystems) {
+    this.extension = extension;
+    this.version = version;
+    this.displayName = displayName;
+    this.upgradePackage = null;
+    this.operatingSystems = operatingSystems;
+  }
+
+  public Long getId() {
+    return id;
+  }
+
+  public void setId(Long id) {
+    this.id = id;
+  }
+
+  /**
+   * Gets the repository version's extension.
+   *
+   * @return the extension.
+   */
+  public ExtensionEntity getExtension() {
+    return extension;
+  }
+
+  /**
+   * Sets the repository version's extension.
+   *
+   * @param extension
+   *          the extension to set for the repo version (not {@code null}).
+   */
+  public void setExtension(ExtensionEntity extension) {
+    this.extension = extension;
+  }
+
+  public String getVersion() {
+    return version;
+  }
+
+  public void setVersion(String version) {
+    this.version = version;
+  }
+
+  public String getDisplayName() {
+    return displayName;
+  }
+
+  public void setDisplayName(String displayName) {
+    this.displayName = displayName;
+  }
+
+  public String getUpgradePackage() {
+    return upgradePackage;
+  }
+
+  public void setUpgradePackage(String upgradePackage) {
+    this.upgradePackage = upgradePackage;
+  }
+
+  public String getOperatingSystemsJson() {
+    return operatingSystems;
+  }
+
+  public void setOperatingSystems(String repositories) {
+    operatingSystems = repositories;
+  }
+
+  /**
+   * Getter which hides json nature of operating systems and returns them as entities.
+   *
+   * @return empty list if stored json is invalid
+   */
+  public List<OperatingSystemEntity> getOperatingSystems() {
+    if (StringUtils.isNotBlank(operatingSystems)) {
+      try {
+        return repositoryVersionHelperProvider.get().parseOperatingSystems(operatingSystems);
+      } catch (Exception ex) {
+        // Should never happen as we validate json before storing it to DB
+        LOG.error("Could not parse operating systems json stored in database:" + operatingSystems, ex);
+      }
+    }
+    return Collections.emptyList();
+  }
+
+  public String getExtensionName() {
+    return getExtensionId().getExtensionName();
+  }
+
+  public String getExtensionVersion() {
+    return getExtensionId().getExtensionVersion();
+  }
+
+  public ExtensionId getExtensionId() {
+    if (null == extension) {
+      return null;
+    }
+
+    return new ExtensionId(extension.getExtensionName(), extension.getExtensionVersion());
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    ExtensionRepositoryVersionEntity that = (ExtensionRepositoryVersionEntity) o;
+
+    if (id != null ? !id.equals(that.id) : that.id != null) {
+      return false;
+    }
+    if (extension != null ? !extension.equals(that.extension) : that.extension != null) {
+      return false;
+    }
+    if (version != null ? !version.equals(that.version) : that.version != null) {
+      return false;
+    }
+    if (displayName != null ? !displayName.equals(that.displayName) : that.displayName != null) {
+      return false;
+    }
+    if (upgradePackage != null ? !upgradePackage.equals(that.upgradePackage) : that.upgradePackage != null) {
+      return false;
+    }
+    if (operatingSystems != null ? !operatingSystems.equals(that.operatingSystems) : that.operatingSystems != null) {
+      return false;
+    }
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = id != null ? id.hashCode() : 0;
+    result = 31 * result + (extension != null ? extension.hashCode() : 0);
+    result = 31 * result + (version != null ? version.hashCode() : 0);
+    result = 31 * result + (displayName != null ? displayName.hashCode() : 0);
+    result = 31 * result + (upgradePackage != null ? upgradePackage.hashCode() : 0);
+    result = 31 * result + (operatingSystems != null ? operatingSystems.hashCode() : 0);
+    return result;
+  }
+
+}

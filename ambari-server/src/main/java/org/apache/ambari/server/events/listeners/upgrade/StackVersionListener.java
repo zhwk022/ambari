@@ -23,6 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ambari.server.EagerSingleton;
 import org.apache.ambari.server.events.HostComponentVersionEvent;
 import org.apache.ambari.server.events.publishers.VersionEventPublisher;
+import org.apache.ambari.server.orm.entities.ExtensionRepositoryVersionEntity;
 import org.apache.ambari.server.orm.entities.RepositoryVersionEntity;
 import org.apache.ambari.server.state.Cluster;
 import org.apache.ambari.server.state.ServiceComponentHost;
@@ -82,6 +83,10 @@ public class StackVersionListener {
       RepositoryVersionEntity repoVersion = sch.recalculateHostVersionState();
       if (null != repoVersion) {
         cluster.recalculateClusterVersionState(repoVersion);
+      }
+      ExtensionRepositoryVersionEntity extensionRepoVersion = sch.recalculateHostExtensionVersionState();
+      if (null != extensionRepoVersion) {
+        cluster.recalculateClusterExtensionVersionState(extensionRepoVersion);
       }
     } catch (Exception e) {
       LOG.error(

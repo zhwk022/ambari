@@ -35,6 +35,8 @@ import java.util.Map;
 
 import org.apache.ambari.server.configuration.Configuration;
 import org.apache.ambari.server.metadata.ActionMetadata;
+import org.apache.ambari.server.orm.dao.ExtensionDAO;
+import org.apache.ambari.server.orm.dao.ExtensionLinkDAO;
 import org.apache.ambari.server.orm.dao.MetainfoDAO;
 import org.apache.ambari.server.orm.dao.StackDAO;
 import org.apache.ambari.server.orm.entities.StackEntity;
@@ -58,6 +60,8 @@ public class StackManagerCommonServicesTest {
   private static StackManager stackManager;
   private static MetainfoDAO metaInfoDao;
   private static StackDAO stackDao;
+  private static ExtensionDAO extensionDao;
+  private static ExtensionLinkDAO linkDao;
   private static ActionMetadata actionMetadata;
   private static OsFamily osFamily;
 
@@ -72,14 +76,18 @@ public class StackManagerCommonServicesTest {
 
     String commonServices = ClassLoader.getSystemClassLoader().getResource(
         "common-services").getPath();
-    return createTestStackManager(stack, commonServices);
+    String extensions = ClassLoader.getSystemClassLoader().getResource(
+            "extensions").getPath();
+    return createTestStackManager(stack, commonServices, extensions);
   }
 
   public static StackManager createTestStackManager(String stackRoot,
-      String commonServicesRoot) throws Exception {
+      String commonServicesRoot, String extensionRoot) throws Exception {
     // todo: dao , actionMetaData expectations
     metaInfoDao = createNiceMock(MetainfoDAO.class);
     stackDao = createNiceMock(StackDAO.class);
+    extensionDao = createNiceMock(ExtensionDAO.class);
+    linkDao = createNiceMock(ExtensionLinkDAO.class);
     actionMetadata = createNiceMock(ActionMetadata.class);
     Configuration config = createNiceMock(Configuration.class);
     StackEntity stackEntity = createNiceMock(StackEntity.class);
@@ -96,8 +104,8 @@ public class StackManagerCommonServicesTest {
 
     replay(metaInfoDao, actionMetadata);
 
-    StackManager stackManager = new StackManager(new File(stackRoot), new File(
-        commonServicesRoot), osFamily, metaInfoDao, actionMetadata, stackDao);
+    StackManager stackManager = new StackManager(new File(stackRoot), new File(commonServicesRoot),
+        new File(extensionRoot), osFamily, metaInfoDao, actionMetadata, stackDao, extensionDao, linkDao);
 
     EasyMock.verify( config, stackDao );
 

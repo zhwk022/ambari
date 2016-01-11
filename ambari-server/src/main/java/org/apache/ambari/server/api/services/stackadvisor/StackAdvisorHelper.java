@@ -113,7 +113,9 @@ public class StackAdvisorHelper {
       StackAdvisorRequestType requestType) throws StackAdvisorException {
     StackAdvisorCommand<RecommendationResponse> command;
     if (requestType == StackAdvisorRequestType.HOST_GROUPS) {
-      command = new ComponentLayoutRecommendationCommand(recommendationsDir, stackAdvisorScript,
+      File script = new File(stackAdvisorScript);
+      String layoutScript = new File(script.getParentFile(), "stack_layout_advisor.py").getAbsolutePath();
+      command = new ComponentLayoutRecommendationCommand(recommendationsDir, layoutScript,
           requestId, saRunner, metaInfo);
     } else if (requestType == StackAdvisorRequestType.CONFIGURATIONS) {
       command = new ConfigurationRecommendationCommand(recommendationsDir, stackAdvisorScript,

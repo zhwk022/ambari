@@ -47,6 +47,7 @@ import org.apache.ambari.server.configuration.Configuration.ConnectionPoolType;
 import org.apache.ambari.server.configuration.Configuration.DatabaseType;
 import org.apache.ambari.server.controller.internal.ComponentResourceProvider;
 import org.apache.ambari.server.controller.internal.CredentialResourceProvider;
+import org.apache.ambari.server.controller.internal.ExtensionRepositoryVersionResourceProvider;
 import org.apache.ambari.server.controller.internal.HostComponentResourceProvider;
 import org.apache.ambari.server.controller.internal.HostKerberosIdentityResourceProvider;
 import org.apache.ambari.server.controller.internal.HostResourceProvider;
@@ -415,6 +416,7 @@ public class ControllerModule extends AbstractModule {
         .implement(ResourceProvider.class, Names.named("component"), ComponentResourceProvider.class)
         .implement(ResourceProvider.class, Names.named("member"), MemberResourceProvider.class)
         .implement(ResourceProvider.class, Names.named("repositoryVersion"), RepositoryVersionResourceProvider.class)
+        .implement(ResourceProvider.class, Names.named("extensionRepositoryVersion"), ExtensionRepositoryVersionResourceProvider.class)
         .implement(ResourceProvider.class, Names.named("hostKerberosIdentity"), HostKerberosIdentityResourceProvider.class)
         .implement(ResourceProvider.class, Names.named("credential"), CredentialResourceProvider.class)
         .implement(ResourceProvider.class, Names.named("kerberosDescriptor"), KerberosDescriptorResourceProvider.class)

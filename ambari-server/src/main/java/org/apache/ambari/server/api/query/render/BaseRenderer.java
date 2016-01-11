@@ -73,6 +73,7 @@ public abstract class BaseRenderer implements Renderer {
    */
   protected void copyPropertiesToResult(TreeNode<QueryInfo> queryTree, TreeNode<Set<String>> propertyTree) {
     for (TreeNode<QueryInfo> node : queryTree.getChildren()) {
+      Set<String> properties = node.getObject().getProperties();
       TreeNode<Set<String>> child = propertyTree.addChild(
           node.getObject().getProperties(), node.getName());
       copyPropertiesToResult(node, child);
@@ -86,7 +87,8 @@ public abstract class BaseRenderer implements Renderer {
    * @param properties    set of properties which pk will be added to
    */
   protected void addPrimaryKey(Resource.Type resourceType, Set<String> properties) {
-    properties.add(getSchema(resourceType).getKeyPropertyId(resourceType));
+    String property = getSchema(resourceType).getKeyPropertyId(resourceType);
+    properties.add(property);
   }
 
   /**

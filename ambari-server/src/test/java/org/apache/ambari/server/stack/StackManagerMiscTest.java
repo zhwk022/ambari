@@ -31,6 +31,8 @@ import java.util.Collection;
 
 import org.apache.ambari.server.AmbariException;
 import org.apache.ambari.server.metadata.ActionMetadata;
+import org.apache.ambari.server.orm.dao.ExtensionDAO;
+import org.apache.ambari.server.orm.dao.ExtensionLinkDAO;
 import org.apache.ambari.server.orm.dao.MetainfoDAO;
 import org.apache.ambari.server.orm.dao.StackDAO;
 import org.apache.ambari.server.orm.entities.StackEntity;
@@ -48,6 +50,8 @@ public class StackManagerMiscTest  {
   public void testCycleDetection() throws Exception {
     MetainfoDAO metaInfoDao = createNiceMock(MetainfoDAO.class);
     StackDAO stackDao = createNiceMock(StackDAO.class);
+    ExtensionDAO extensionDao = createNiceMock(ExtensionDAO.class);
+    ExtensionLinkDAO linkDao = createNiceMock(ExtensionLinkDAO.class);
     ActionMetadata actionMetadata = createNiceMock(ActionMetadata.class);
     OsFamily osFamily = createNiceMock(OsFamily.class);
     StackEntity stackEntity = createNiceMock(StackEntity.class);
@@ -62,7 +66,7 @@ public class StackManagerMiscTest  {
       String stacksCycle1 = ClassLoader.getSystemClassLoader().getResource("stacks_with_cycle").getPath();
 
       StackManager stackManager = new StackManager(new File(stacksCycle1),
-          null, osFamily, metaInfoDao, actionMetadata, stackDao);
+          null, null, osFamily, metaInfoDao, actionMetadata, stackDao, extensionDao, linkDao);
 
       fail("Expected exception due to cyclic stack");
     } catch (AmbariException e) {
@@ -74,7 +78,7 @@ public class StackManagerMiscTest  {
           "stacks_with_cycle2").getPath();
 
       StackManager stackManager = new StackManager(new File(stacksCycle2),
-          null, osFamily, metaInfoDao, actionMetadata, stackDao);
+          null, null, osFamily, metaInfoDao, actionMetadata, stackDao, extensionDao, linkDao);
 
       fail("Expected exception due to cyclic stack");
     } catch (AmbariException e) {
@@ -91,6 +95,8 @@ public class StackManagerMiscTest  {
   public void testGetServiceInfoFromSingleStack() throws Exception {
     MetainfoDAO metaInfoDao = createNiceMock(MetainfoDAO.class);
     StackDAO stackDao = createNiceMock(StackDAO.class);
+    ExtensionDAO extensionDao = createNiceMock(ExtensionDAO.class);
+    ExtensionLinkDAO linkDao = createNiceMock(ExtensionLinkDAO.class);
     ActionMetadata actionMetadata = createNiceMock(ActionMetadata.class);
     OsFamily  osFamily = createNiceMock(OsFamily.class);
     StackEntity stackEntity = createNiceMock(StackEntity.class);
@@ -108,7 +114,7 @@ public class StackManagerMiscTest  {
 
     StackManager stackManager = new StackManager(new File(singleStack.replace(
         StackManager.PATH_DELIMITER, File.separator)),
-        null, osFamily, metaInfoDao, actionMetadata, stackDao);
+        null, null, osFamily, metaInfoDao, actionMetadata, stackDao, extensionDao, linkDao);
 
 
     Collection<StackInfo> stacks = stackManager.getStacks();

@@ -701,6 +701,7 @@ public class QueryImpl implements Query, ResourceInstance {
     Set<String> finalizedProperties = node.getObject();
     query.requestedProperties.clear();
     // currently not exposing temporal information to renderer
+
     query.requestedProperties.addAll(finalizedProperties);
 
     for (TreeNode<Set<String>> child : node.getChildren()) {

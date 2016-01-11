@@ -40,6 +40,8 @@ public class DefaultRenderer extends BaseRenderer implements Renderer {
       TreeNode<QueryInfo> queryTree, boolean isCollection) {
 
     QueryInfo queryInfo = queryTree.getObject();
+    Set<String> properties = queryInfo.getProperties();
+
     TreeNode<Set<String>> resultTree = new TreeNodeImpl<Set<String>>(
         null, queryInfo.getProperties(), queryTree.getName());
 

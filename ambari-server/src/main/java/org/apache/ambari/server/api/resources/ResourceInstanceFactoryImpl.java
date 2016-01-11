@@ -166,12 +166,56 @@ public class ResourceInstanceFactoryImpl implements ResourceInstanceFactory {
         resourceDefinition = new StackConfigurationDependencyResourceDefinition();
         break;
 
+      case Extension:
+        resourceDefinition = new ExtensionResourceDefinition();
+        break;
+
+      case ExtensionLink:
+        resourceDefinition = new ExtensionLinkResourceDefinition();
+        break;
+
+      case ExtensionVersion:
+        resourceDefinition = new ExtensionVersionResourceDefinition();
+        break;
+
+      case ExtensionLevelConfiguration:
+        resourceDefinition = new ExtensionLevelConfigurationResourceDefinition();
+        break;
+
+      case ExtensionService:
+        resourceDefinition = new ExtensionServiceResourceDefinition();
+        break;
+
+      case ExtensionServiceComponent:
+        resourceDefinition = new ExtensionServiceComponentResourceDefinition();
+        break;
+
+      case ExtensionServiceComponentDependency:
+        resourceDefinition = new ExtensionDependencyResourceDefinition();
+        break;
+
+      case ExtensionConfiguration:
+        resourceDefinition = new ExtensionConfigurationResourceDefinition();
+        break;
+
+      case ExtensionConfigurationDependency:
+        resourceDefinition = new ExtensionConfigurationDependencyResourceDefinition();
+        break;
+
       case OperatingSystem:
         resourceDefinition = new OperatingSystemResourceDefinition();
         break;
 
+      case ExtensionOperatingSystem:
+        resourceDefinition = new ExtensionOperatingSystemResourceDefinition();
+        break;
+
       case Repository:
         resourceDefinition = new RepositoryResourceDefinition();
+        break;
+
+      case ExtensionRepository:
+        resourceDefinition = new ExtensionRepositoryResourceDefinition();
         break;
 
       case DRFeed:
@@ -319,6 +363,16 @@ public class ResourceInstanceFactoryImpl implements ResourceInstanceFactory {
             Resource.Type.OperatingSystem);
         break;
 
+      case ExtensionRepositoryVersion:
+        resourceDefinition = new ExtensionRepositoryVersionResourceDefinition();
+        break;
+
+      case CompatibleExtensionRepositoryVersion:
+        resourceDefinition = new SimpleResourceDefinition(Resource.Type.CompatibleExtensionRepositoryVersion,
+            "compatible_repository_version", "compatible_repository_versions",
+            Resource.Type.ExtensionOperatingSystem);
+        break;
+
       case HostStackVersion:
         resourceDefinition = new ComponentStackVersionResourceDefinition(Resource.Type.HostStackVersion);
         break;
@@ -352,6 +406,20 @@ public class ResourceInstanceFactoryImpl implements ResourceInstanceFactory {
 
       case StackArtifact:
         resourceDefinition = new BaseResourceDefinition(Resource.Type.StackArtifact) {
+          @Override
+          public String getPluralName() {
+            return "artifacts";
+          }
+
+          @Override
+          public String getSingularName() {
+            return "artifact";
+          }
+        };
+        break;
+
+      case ExtensionArtifact:
+        resourceDefinition = new BaseResourceDefinition(Resource.Type.ExtensionArtifact) {
           @Override
           public String getPluralName() {
             return "artifacts";

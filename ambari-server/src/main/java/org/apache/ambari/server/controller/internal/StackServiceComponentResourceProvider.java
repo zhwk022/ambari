@@ -62,6 +62,21 @@ public class StackServiceComponentResourceProvider extends
   private static final String ADVERTISE_VERSION_ID = PropertyHelper.getPropertyId(
       "StackServiceComponents", "advertise_version");
 
+  private static final String NOT_PREFERABLE_ON_SERVER_COMPONENTS_ID = PropertyHelper.getPropertyId(
+      "StackServiceComponents", "not_preferable_on_server_components");
+
+  private static final String NOT_VALUABLE_ID = PropertyHelper.getPropertyId(
+      "StackServiceComponents", "not_valuable");
+
+  private static final String USE_CARDINALITY_FOR_LAYOUT_ID = PropertyHelper.getPropertyId(
+      "StackServiceComponents", "use_cardinality_for_layout");
+
+  private static final String LAYOUT_ID = PropertyHelper.getPropertyId(
+      "StackServiceComponents", "layout");
+
+  private static final String IDEAL_MINIMUM_ID = PropertyHelper.getPropertyId(
+      "StackServiceComponents", "ideal_minimum");
+
   private static final String CUSTOM_COMMANDS_PROPERTY_ID = PropertyHelper.getPropertyId(
       "StackServiceComponents", "custom_commands");
 
@@ -140,6 +155,21 @@ public class StackServiceComponentResourceProvider extends
 
       setResourceProperty(resource, ADVERTISE_VERSION_ID,
           response.isVersionAdvertised(), requestedIds);
+
+      setResourceProperty(resource, NOT_PREFERABLE_ON_SERVER_COMPONENTS_ID,
+          response.isNotPreferableOnServerComponents(), requestedIds);
+
+      setResourceProperty(resource, NOT_VALUABLE_ID,
+          response.isNotValuable(), requestedIds);
+
+      setResourceProperty(resource, USE_CARDINALITY_FOR_LAYOUT_ID,
+          response.isUseCardinalityForLayout(), requestedIds);
+
+      setResourceProperty(resource, LAYOUT_ID,
+          response.getLayout(), requestedIds);
+
+      setResourceProperty(resource, IDEAL_MINIMUM_ID,
+          response.getIdealMinimum(), requestedIds);
 
       setResourceProperty(resource, CUSTOM_COMMANDS_PROPERTY_ID,
           response.getCustomCommands(), requestedIds);

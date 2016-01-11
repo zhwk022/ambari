@@ -34,6 +34,20 @@ CREATE TABLE stack(
   PRIMARY KEY (stack_id)
 );
 
+CREATE TABLE extension(
+  extension_id BIGINT NOT NULL,
+  extension_name VARCHAR(255) NOT NULL,
+  extension_version VARCHAR(255) NOT NULL,
+  PRIMARY KEY (extension_id)
+);
+
+CREATE TABLE extensionlink(
+  link_id BIGINT NOT NULL,
+  stack_id BIGINT NOT NULL,
+  extension_id BIGINT NOT NULL,
+  PRIMARY KEY (link_id)
+);
+
 CREATE TABLE clusters (
   cluster_id BIGINT NOT NULL,
   resource_id BIGINT NOT NULL,
@@ -105,10 +119,21 @@ CREATE TABLE cluster_version (
   user_name VARCHAR(32),
   PRIMARY KEY (id));
 
+CREATE TABLE cluster_extension_version (
+  id BIGINT NOT NULL,
+  repo_version_id BIGINT NOT NULL,
+  cluster_id BIGINT NOT NULL,
+  state VARCHAR(32) NOT NULL,
+  start_time BIGINT NOT NULL,
+  end_time BIGINT,
+  user_name VARCHAR(32),
+  PRIMARY KEY (id));
+
 CREATE TABLE hostcomponentdesiredstate (
   cluster_id BIGINT NOT NULL,
   component_name VARCHAR(100) NOT NULL,
   desired_stack_id BIGINT NOT NULL,
+  desired_extension_id BIGINT,
   desired_state VARCHAR(255) NOT NULL,
   host_id BIGINT NOT NULL,
   service_name VARCHAR(100) NOT NULL,
@@ -125,6 +150,7 @@ CREATE TABLE hostcomponentstate (
   component_name VARCHAR(100) NOT NULL,
   version VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN',
   current_stack_id BIGINT NOT NULL,
+  current_extension_id BIGINT,
   current_state VARCHAR(255) NOT NULL,
   host_id BIGINT NOT NULL,
   service_name VARCHAR(100) NOT NULL,
@@ -165,6 +191,13 @@ CREATE TABLE hoststate (
   PRIMARY KEY (host_id));
 
 CREATE TABLE host_version (
+  id BIGINT NOT NULL,
+  repo_version_id BIGINT NOT NULL,
+  host_id BIGINT NOT NULL,
+  state VARCHAR(32) NOT NULL,
+  PRIMARY KEY (id));
+
+CREATE TABLE host_extension_version (
   id BIGINT NOT NULL,
   repo_version_id BIGINT NOT NULL,
   host_id BIGINT NOT NULL,
@@ -674,6 +707,8 @@ ALTER TABLE adminpermission ADD CONSTRAINT UQ_perm_name_resource_type_id UNIQUE 
 ALTER TABLE repo_version ADD CONSTRAINT UQ_repo_version_display_name UNIQUE (display_name);
 ALTER TABLE repo_version ADD CONSTRAINT UQ_repo_version_stack_id UNIQUE (stack_id, version);
 ALTER TABLE stack ADD CONSTRAINT unq_stack UNIQUE (stack_name, stack_version);
+ALTER TABLE extension ADD CONSTRAINT unq_extension UNIQUE (extension_name, extension_version);
+ALTER TABLE extensionlink ADD CONSTRAINT unq_extension_link UNIQUE (stack_id, extension_id);
 
 -- altering tables by creating foreign keys----------
 -- Note, Oracle has a limitation of 32 chars in the FK name, and we should use the same FK name in all DB types.
@@ -755,11 +790,15 @@ ALTER TABLE clusterconfig ADD CONSTRAINT FK_clusterconfig_stack_id FOREIGN KEY (
 ALTER TABLE serviceconfig ADD CONSTRAINT FK_serviceconfig_stack_id FOREIGN KEY (stack_id) REFERENCES stack(stack_id);
 ALTER TABLE clusterstate ADD CONSTRAINT FK_cs_current_stack_id FOREIGN KEY (current_stack_id) REFERENCES stack(stack_id);
 ALTER TABLE hostcomponentdesiredstate ADD CONSTRAINT FK_hcds_desired_stack_id FOREIGN KEY (desired_stack_id) REFERENCES stack(stack_id);
+ALTER TABLE hostcomponentdesiredstate ADD CONSTRAINT FK_hcds_desired_extension_id FOREIGN KEY (desired_extension_id) REFERENCES extension(extension_id);
 ALTER TABLE hostcomponentstate ADD CONSTRAINT FK_hcs_current_stack_id FOREIGN KEY (current_stack_id) REFERENCES stack(stack_id);
+ALTER TABLE hostcomponentstate ADD CONSTRAINT FK_hcs_current_extension_id FOREIGN KEY (current_extension_id) REFERENCES extension(extension_id);
 ALTER TABLE servicecomponentdesiredstate ADD CONSTRAINT FK_scds_desired_stack_id FOREIGN KEY (desired_stack_id) REFERENCES stack(stack_id);
 ALTER TABLE servicedesiredstate ADD CONSTRAINT FK_sds_desired_stack_id FOREIGN KEY (desired_stack_id) REFERENCES stack(stack_id);
 ALTER TABLE blueprint ADD CONSTRAINT FK_blueprint_stack_id FOREIGN KEY (stack_id) REFERENCES stack(stack_id);
 ALTER TABLE repo_version ADD CONSTRAINT FK_repoversion_stack_id FOREIGN KEY (stack_id) REFERENCES stack(stack_id);
+ALTER TABLE extensionlink ADD CONSTRAINT FK_extensionlink_stack_id FOREIGN KEY (stack_id) REFERENCES stack(stack_id);
+ALTER TABLE extensionlink ADD CONSTRAINT FK_extensionlink_extension_id FOREIGN KEY (extension_id) REFERENCES extension(extension_id);
 
 -- Kerberos
 CREATE TABLE kerberos_principal (

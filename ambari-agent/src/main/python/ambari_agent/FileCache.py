@@ -43,6 +43,7 @@ class FileCache():
   ALERTS_CACHE_DIRECTORY="alerts"
   RECOVERY_CACHE_DIRECTORY="recovery"
   STACKS_CACHE_DIRECTORY="stacks"
+  EXTENSIONS_CACHE_DIRECTORY="extensions"
   COMMON_SERVICES_DIRECTORY="common-services"
   CUSTOM_ACTIONS_CACHE_DIRECTORY="custom_actions"
   HOST_SCRIPTS_CACHE_DIRECTORY="host_scripts"
@@ -67,6 +68,13 @@ class FileCache():
   def reset(self):
     self.uptodate_paths = [] # Paths that already have been recently checked
 
+
+  def get_extensions_base_dir(self, command, server_url_prefix):
+    """
+    Returns a base directory for extensions
+    """
+    return self.provide_directory(self.cache_dir, self.EXTENSIONS_CACHE_DIRECTORY,
+                                  server_url_prefix)
 
   def get_service_base_dir(self, command, server_url_prefix):
     """

@@ -82,9 +82,5 @@ public class PropertyDependencyInfo {
         '}';
   }
 
-  public StackConfigurationDependencyResponse convertToResponse() {
-    return new StackConfigurationDependencyResponse(getName(), getType());
-  }
-
 }
 

@@ -147,6 +147,7 @@
           <!-- TODO: cardinality is conditional on HA topology -->
           <cardinality>0+</cardinality>
           <versionAdvertised>false</versionAdvertised>
+          <notValuable>true</notValuable>
           <commandScript>
             <script>scripts/zkfc_slave.py</script>
             <scriptType>PYTHON</scriptType>

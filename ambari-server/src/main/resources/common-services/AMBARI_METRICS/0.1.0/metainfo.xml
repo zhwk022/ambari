@@ -31,6 +31,7 @@
           <category>MASTER</category>
           <cardinality>1</cardinality>
           <versionAdvertised>false</versionAdvertised>
+          <setupHA>true</setupHA>
           <timelineAppid>AMS-HBASE</timelineAppid>
           <dependencies>
             <dependency>

@@ -24,6 +24,24 @@ CREATE TABLE stack(
   PRIMARY KEY (stack_id)
 );
 
+CREATE TABLE extension(
+  extension_id BIGINT NOT NULL,
+  extension_name VARCHAR(255) NOT NULL,
+  extension_version VARCHAR(255) NOT NULL,
+  PRIMARY KEY (extension_id),
+  CONSTRAINT unq_extension UNIQUE(extension_name, extension_version)
+);
+
+CREATE TABLE extensionlink(
+  link_id BIGINT NOT NULL,
+  stack_id BIGINT NOT NULL,
+  extension_id BIGINT NOT NULL,
+  PRIMARY KEY (link_id),
+  FOREIGN KEY (stack_id) REFERENCES stack(stack_id),
+  FOREIGN KEY (extension_id) REFERENCES extension(extension_id),
+  CONSTRAINT unq_extension_link UNIQUE(stack_id, extension_id)
+);
+
 CREATE TABLE clusters (
   cluster_id BIGINT NOT NULL,
   resource_id BIGINT NOT NULL,
@@ -104,10 +122,21 @@ CREATE TABLE cluster_version (
   user_name VARCHAR(32),
   PRIMARY KEY (id));
 
+CREATE TABLE cluster_extension_version (
+  id BIGINT NOT NULL,
+  repo_version_id BIGINT NOT NULL,
+  cluster_id BIGINT NOT NULL,
+  state VARCHAR(32) NOT NULL,
+  start_time BIGINT NOT NULL,
+  end_time BIGINT,
+  user_name VARCHAR(32),
+  PRIMARY KEY (id));
+
 CREATE TABLE hostcomponentdesiredstate (
   cluster_id BIGINT NOT NULL,
   component_name VARCHAR(255) NOT NULL,
   desired_stack_id BIGINT NOT NULL,
+  desired_extension_id BIGINT,
   desired_state VARCHAR(255) NOT NULL,
   host_id BIGINT NOT NULL,
   service_name VARCHAR(255) NOT NULL,
@@ -124,6 +153,7 @@ CREATE TABLE hostcomponentstate (
   component_name VARCHAR(255) NOT NULL,
   version VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN',
   current_stack_id BIGINT NOT NULL,
+  current_extension_id BIGINT,
   current_state VARCHAR(255) NOT NULL,
   host_id BIGINT NOT NULL,
   service_name VARCHAR(255) NOT NULL,
@@ -164,6 +194,13 @@ CREATE TABLE hoststate (
   PRIMARY KEY (host_id));
 
 CREATE TABLE host_version (
+  id BIGINT NOT NULL,
+  repo_version_id BIGINT NOT NULL,
+  host_id BIGINT NOT NULL,
+  state VARCHAR(32) NOT NULL,
+  PRIMARY KEY (id));
+
+CREATE TABLE host_extension_version (
   id BIGINT NOT NULL,
   repo_version_id BIGINT NOT NULL,
   host_id BIGINT NOT NULL,
@@ -550,7 +587,19 @@ CREATE TABLE repo_version (
   version VARCHAR(255) NOT NULL,
   display_name VARCHAR(128) NOT NULL,
   repositories TEXT NOT NULL,
-  PRIMARY KEY(repo_version_id)
+  PRIMARY KEY(repo_version_id),
+  FOREIGN KEY (stack_id) REFERENCES stack(stack_id)
+);
+
+CREATE TABLE extension_repo_version (
+  repo_version_id BIGINT NOT NULL,
+  extension_id BIGINT NOT NULL,
+  version VARCHAR(255) NOT NULL,
+  display_name VARCHAR(128) NOT NULL,
+  upgrade_package VARCHAR(255) NOT NULL,
+  repositories TEXT NOT NULL,
+  PRIMARY KEY repo_version_id),
+  FOREIGN KEY (extension_id) REFERENCES extension(extension_id)
 );
 
 CREATE TABLE widget (
@@ -676,6 +725,8 @@ ALTER TABLE clusterconfigmapping ADD CONSTRAINT clusterconfigmappingcluster_id F
 ALTER TABLE clusterstate ADD CONSTRAINT FK_clusterstate_cluster_id FOREIGN KEY (cluster_id) REFERENCES clusters (cluster_id);
 ALTER TABLE cluster_version ADD CONSTRAINT FK_cluster_version_cluster_id FOREIGN KEY (cluster_id) REFERENCES clusters (cluster_id);
 ALTER TABLE cluster_version ADD CONSTRAINT FK_cluster_version_repovers_id FOREIGN KEY (repo_version_id) REFERENCES repo_version (repo_version_id);
+ALTER TABLE cluster_extension_version ADD CONSTRAINT FK_cluster_extension_version_cluster_id FOREIGN KEY (cluster_id) REFERENCES clusters (cluster_id);
+ALTER TABLE cluster_extension_version ADD CONSTRAINT FK_cluster_extension_version_repovers_id FOREIGN KEY (repo_version_id) REFERENCES extension_repo_version (repo_version_id);
 ALTER TABLE hostcomponentdesiredstate ADD CONSTRAINT FK_hcdesiredstate_host_id FOREIGN KEY (host_id) REFERENCES hosts (host_id);
 ALTER TABLE hostcomponentdesiredstate ADD CONSTRAINT hstcmpnntdesiredstatecmpnntnme FOREIGN KEY (component_name, cluster_id, service_name) REFERENCES servicecomponentdesiredstate (component_name, cluster_id, service_name);
 ALTER TABLE hostcomponentstate ADD CONSTRAINT hstcomponentstatecomponentname FOREIGN KEY (component_name, cluster_id, service_name) REFERENCES servicecomponentdesiredstate (component_name, cluster_id, service_name);
@@ -683,6 +734,8 @@ ALTER TABLE hostcomponentstate ADD CONSTRAINT FK_hostcomponentstate_host_id FORE
 ALTER TABLE hoststate ADD CONSTRAINT FK_hoststate_host_id FOREIGN KEY (host_id) REFERENCES hosts (host_id);
 ALTER TABLE host_version ADD CONSTRAINT FK_host_version_host_id FOREIGN KEY (host_id) REFERENCES hosts (host_id);
 ALTER TABLE host_version ADD CONSTRAINT FK_host_version_repovers_id FOREIGN KEY (repo_version_id) REFERENCES repo_version (repo_version_id);
+ALTER TABLE host_extension_version ADD CONSTRAINT FK_host_extension_version_host_id FOREIGN KEY (host_id) REFERENCES hosts (host_id);
+ALTER TABLE host_extension_version ADD CONSTRAINT FK_host_extension_version_repovers_id FOREIGN KEY (repo_version_id) REFERENCES extension_repo_version (repo_version_id);
 ALTER TABLE servicecomponentdesiredstate ADD CONSTRAINT srvccmponentdesiredstatesrvcnm FOREIGN KEY (service_name, cluster_id) REFERENCES clusterservices (service_name, cluster_id);
 ALTER TABLE servicedesiredstate ADD CONSTRAINT servicedesiredstateservicename FOREIGN KEY (service_name, cluster_id) REFERENCES clusterservices (service_name, cluster_id);
 ALTER TABLE execution_command ADD CONSTRAINT FK_execution_command_task_id FOREIGN KEY (task_id) REFERENCES host_role_command (task_id);
@@ -746,11 +799,15 @@ ALTER TABLE clusterconfig ADD CONSTRAINT FK_clusterconfig_stack_id FOREIGN KEY (
 ALTER TABLE serviceconfig ADD CONSTRAINT FK_serviceconfig_stack_id FOREIGN KEY (stack_id) REFERENCES stack(stack_id);
 ALTER TABLE clusterstate ADD CONSTRAINT FK_cs_current_stack_id FOREIGN KEY (current_stack_id) REFERENCES stack(stack_id);
 ALTER TABLE hostcomponentdesiredstate ADD CONSTRAINT FK_hcds_desired_stack_id FOREIGN KEY (desired_stack_id) REFERENCES stack(stack_id);
+ALTER TABLE hostcomponentdesiredstate ADD CONSTRAINT FK_hcds_desired_extension_id FOREIGN KEY (desired_extension_id) REFERENCES extension(extension_id);
 ALTER TABLE hostcomponentstate ADD CONSTRAINT FK_hcs_current_stack_id FOREIGN KEY (current_stack_id) REFERENCES stack(stack_id);
+ALTER TABLE hostcomponentstate ADD CONSTRAINT FK_hcs_current_extension_id FOREIGN KEY (current_extension_id) REFERENCES extension(extension_id);
 ALTER TABLE servicecomponentdesiredstate ADD CONSTRAINT FK_scds_desired_stack_id FOREIGN KEY (desired_stack_id) REFERENCES stack(stack_id);
 ALTER TABLE servicedesiredstate ADD CONSTRAINT FK_sds_desired_stack_id FOREIGN KEY (desired_stack_id) REFERENCES stack(stack_id);
 ALTER TABLE blueprint ADD CONSTRAINT FK_blueprint_stack_id FOREIGN KEY (stack_id) REFERENCES stack(stack_id);
 ALTER TABLE repo_version ADD CONSTRAINT FK_repoversion_stack_id FOREIGN KEY (stack_id) REFERENCES stack(stack_id);
+ALTER TABLE extensionlink ADD CONSTRAINT FK_extensionlink_stack_id FOREIGN KEY (stack_id) REFERENCES stack(stack_id);
+ALTER TABLE extensionlink ADD CONSTRAINT FK_extensionlink_extension_id FOREIGN KEY (extension_id) REFERENCES extension(extension_id);
 
 -- Kerberos
 CREATE TABLE kerberos_principal (
@@ -984,9 +1041,15 @@ INSERT INTO ambari_sequences (sequence_name, sequence_value)
   union all
   select 'repo_version_id_seq', 0
   union all
+  select 'extension_repo_version_id_seq', 0
+  union all
   select 'cluster_version_id_seq', 0
   union all
   select 'host_version_id_seq', 0
+  union all
+  select 'cluster_extension_version_id_seq', 0
+  union all
+  select 'host_extension_version_id_seq', 0
   union all
   select 'service_config_id_seq', 1
   union all
@@ -1001,6 +1064,10 @@ INSERT INTO ambari_sequences (sequence_name, sequence_value)
   select 'upgrade_item_id_seq', 0
   union all
   select 'stack_id_seq', 0
+  union all
+  select 'extension_id_seq', 0
+  union all
+  select 'link_id_seq', 0
   union all
   select 'topology_host_info_id_seq', 0
   union all

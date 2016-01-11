@@ -56,6 +56,9 @@ import org.apache.ambari.server.state.UpgradeState;
         name = "HostComponentStateEntity.findByHost",
         query = "SELECT hcs from HostComponentStateEntity hcs WHERE hcs.hostEntity.hostName=:hostName"),
     @NamedQuery(
+        name = "HostComponentStateEntity.findByExtension",
+        query = "SELECT hcs from HostComponentStateEntity hcs WHERE hcs.currentExtension.extensionId=:extensionId"),
+    @NamedQuery(
         name = "HostComponentStateEntity.findByService",
         query = "SELECT hcs from HostComponentStateEntity hcs WHERE hcs.serviceName=:serviceName"),
     @NamedQuery(
@@ -107,6 +110,13 @@ public class HostComponentStateEntity {
   @OneToOne
   @JoinColumn(name = "current_stack_id", unique = false, nullable = false, insertable = true, updatable = true)
   private StackEntity currentStack;
+
+  /**
+   * Unidirectional one-to-one association to {@link ExtensionEntity}
+   */
+  @OneToOne
+  @JoinColumn(name = "current_extension_id", unique = false, nullable = true, insertable = true, updatable = true)
+  private ExtensionEntity currentExtension;
 
   @ManyToOne
   @JoinColumns({
@@ -187,6 +197,14 @@ public class HostComponentStateEntity {
     this.currentStack = currentStack;
   }
 
+  public ExtensionEntity getCurrentExtension() {
+    return currentExtension;
+  }
+
+  public void setCurrentExtension(ExtensionEntity currentExtension) {
+    this.currentExtension = currentExtension;
+  }
+
   public String getVersion() {
     return version;
   }
@@ -225,6 +243,11 @@ public class HostComponentStateEntity {
       return false;
     }
 
+    if (currentExtension != null ? !currentExtension.equals(that.currentExtension)
+        : that.currentExtension != null) {
+      return false;
+    }
+
     if (currentState != null ? !currentState.equals(that.currentState)
         : that.currentState != null) {
       return false;
@@ -259,6 +282,7 @@ public class HostComponentStateEntity {
     result = 31 * result + (currentState != null ? currentState.hashCode() : 0);
     result = 31 * result + (upgradeState != null ? upgradeState.hashCode() : 0);
     result = 31 * result + (currentStack != null ? currentStack.hashCode() : 0);
+    result = 31 * result + (currentExtension != null ? currentExtension.hashCode() : 0);
     result = 31 * result + (serviceName != null ? serviceName.hashCode() : 0);
     result = 31 * result + (version != null ? version.hashCode() : 0);
     return result;

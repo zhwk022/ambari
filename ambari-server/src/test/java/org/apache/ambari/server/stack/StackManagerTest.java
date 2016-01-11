@@ -31,6 +31,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.File;
 import java.io.FileReader;
 import java.lang.reflect.Type;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -40,11 +41,14 @@ import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+
 import org.apache.ambari.server.AmbariException;
 import org.apache.ambari.server.Role;
 import org.apache.ambari.server.RoleCommand;
 import org.apache.ambari.server.configuration.Configuration;
 import org.apache.ambari.server.metadata.ActionMetadata;
+import org.apache.ambari.server.orm.dao.ExtensionDAO;
+import org.apache.ambari.server.orm.dao.ExtensionLinkDAO;
 import org.apache.ambari.server.orm.dao.MetainfoDAO;
 import org.apache.ambari.server.orm.dao.StackDAO;
 import org.apache.ambari.server.state.ClientConfigFileDefinition;
@@ -71,6 +75,8 @@ public class StackManagerTest {
   private static ActionMetadata actionMetadata;
   private static OsFamily osFamily;
   private static StackDAO stackDao;
+  private static ExtensionDAO extensionDao;
+  private static ExtensionLinkDAO linkDao;
 
   @BeforeClass
   public static void initStack() throws Exception{
@@ -86,6 +92,8 @@ public class StackManagerTest {
     // todo: dao , actionMetaData expectations
     metaInfoDao = createNiceMock(MetainfoDAO.class);
     stackDao = createNiceMock(StackDAO.class);
+    extensionDao = createNiceMock(ExtensionDAO.class);
+    linkDao = createNiceMock(ExtensionLinkDAO.class);
     actionMetadata = createNiceMock(ActionMetadata.class);
     Configuration config = createNiceMock(Configuration.class);
 
@@ -96,8 +104,8 @@ public class StackManagerTest {
 
     osFamily = new OsFamily(config);
 
-    StackManager stackManager = new StackManager(new File(stackRoot), null,
-        osFamily, metaInfoDao, actionMetadata, stackDao);
+    StackManager stackManager = new StackManager(new File(stackRoot), null, null,
+        osFamily, metaInfoDao, actionMetadata, stackDao, extensionDao, linkDao);
 
     verify(config, metaInfoDao, stackDao, actionMetadata);
 
@@ -269,7 +277,7 @@ public class StackManagerTest {
     assertEquals("1.0", stack.getVersion());
     Collection<ServiceInfo> services = stack.getServices();
 
-    assertEquals(3, services.size());
+    assertEquals(4, services.size());
 
     // hdfs service
     assertEquals(6, stack.getService("HDFS").getComponents().size());
@@ -357,7 +365,7 @@ public class StackManagerTest {
     StackInfo baseStack = stackManager.getStack("OTHER", "1.0");
     StackInfo stack = stackManager.getStack("OTHER", "2.0");
 
-    assertEquals(4, stack.getServices().size());
+    assertEquals(5, stack.getServices().size());
 
     ServiceInfo service = stack.getService("SQOOP2");
     ServiceInfo baseSqoopService = baseStack.getService("SQOOP2");
@@ -420,6 +428,19 @@ public class StackManagerTest {
     assertEquals("zookeeper-log4j",clientConfigs.get(1).getDictionaryName());
     assertEquals("log4j.properties",clientConfigs.get(1).getFileName());
     assertEquals("env", clientConfigs.get(1).getType());
+  }
+
+  @Test
+  public void testPackageInheritance() throws Exception{
+    StackInfo stack = stackManager.getStack("HDP", "2.0.7");
+    assertNotNull(stack.getService("HBASE"));
+    ServiceInfo hbase = stack.getService("HBASE");
+    assertNotNull("Package dir is " + hbase.getServicePackageFolder(), hbase.getServicePackageFolder());
+
+    stack = stackManager.getStack("HDP", "2.0.8");
+    assertNotNull(stack.getService("HBASE"));
+    hbase = stack.getService("HBASE");
+    assertNotNull("Package dir is " + hbase.getServicePackageFolder(), hbase.getServicePackageFolder());
   }
 
   @Test
@@ -620,6 +641,9 @@ public class StackManagerTest {
     ArrayList<String> hbaseMasterStartValues = (ArrayList<String>) generalDeps.get("HBASE_MASTER-START");
     assertTrue(hbaseMasterStartValues.get(0).equals("ZOOKEEPER_SERVER-START"));
 
+    ServiceInfo service = stack.getService("PIG");
+    assertNotNull("PIG's roll command order is null", service.getRoleCommandOrder());
+
     assertTrue(optionalNoGlusterfs.containsKey("NAMENODE-STOP"));
     ArrayList<String> nameNodeStopValues = (ArrayList<String>) optionalNoGlusterfs.get("NAMENODE-STOP");
     assertTrue(nameNodeStopValues.contains("JOBTRACKER-STOP"));
@@ -629,6 +653,7 @@ public class StackManagerTest {
     ArrayList<String> customMasterStartValues = (ArrayList<String>) generalDeps.get("CUSTOM_MASTER-START");
     assertTrue(customMasterStartValues.contains("ZOOKEEPER_SERVER-START"));
     assertTrue(customMasterStartValues.contains("NAMENODE-START"));
+
   }
 
   @Test
@@ -644,9 +669,19 @@ public class StackManagerTest {
 
     String stackRoot = ClassLoader.getSystemClassLoader().getResource("stacks").getPath().replace("test-classes","classes");
     String commonServices = ClassLoader.getSystemClassLoader().getResource("common-services").getPath().replace("test-classes","classes");
+    File extensions = null;
+
+    try {
+	  URL extensionsURL = ClassLoader.getSystemClassLoader().getResource("extensions");
+      if (extensionsURL != null)
+        extensions = new File(extensionsURL.getPath().replace("test-classes","classes"));
+    }
+    catch (Exception e) {}
 
     MetainfoDAO metaInfoDao = createNiceMock(MetainfoDAO.class);
     StackDAO stackDao = createNiceMock(StackDAO.class);
+    ExtensionDAO extensionDao = createNiceMock(ExtensionDAO.class);
+    ExtensionLinkDAO linkDao = createNiceMock(ExtensionLinkDAO.class);
     ActionMetadata actionMetadata = createNiceMock(ActionMetadata.class);
     Configuration config = createNiceMock(Configuration.class);
 
@@ -657,8 +692,8 @@ public class StackManagerTest {
 
     OsFamily osFamily = new OsFamily(config);
 
-    StackManager stackManager = new StackManager(new File(stackRoot), new File(commonServices),
-            osFamily, metaInfoDao, actionMetadata, stackDao);
+    StackManager stackManager = new StackManager(new File(stackRoot), new File(commonServices), extensions,
+            osFamily, metaInfoDao, actionMetadata, stackDao, extensionDao, linkDao);
 
     for (StackInfo stackInfo : stackManager.getStacks()) {
       for (ServiceInfo serviceInfo : stackInfo.getServices()) {

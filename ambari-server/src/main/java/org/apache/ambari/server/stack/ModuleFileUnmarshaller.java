@@ -20,6 +20,8 @@ package org.apache.ambari.server.stack;
 
 import org.apache.ambari.server.state.stack.ConfigUpgradePack;
 import org.apache.ambari.server.state.stack.ConfigurationXml;
+import org.apache.ambari.server.state.stack.ExtensionMetainfoXml;
+import org.apache.ambari.server.state.stack.ExtensionsXml;
 import org.apache.ambari.server.state.stack.RepositoryXml;
 import org.apache.ambari.server.state.stack.ServiceMetainfoXml;
 import org.apache.ambari.server.state.stack.StackMetainfoXml;
@@ -27,7 +29,9 @@ import org.apache.ambari.server.state.stack.UpgradePack;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,6 +61,12 @@ class ModuleFileUnmarshaller {
     return clz.cast(u.unmarshal(file));
   }
 
+  public <T> void marshal(T object, File file) throws JAXBException {
+    Marshaller m = jaxbContexts.get(object.getClass()).createMarshaller();
+
+    m.marshal(object, file);
+  }
+
   /**
    * statically register the JAXB contexts
    */
@@ -72,6 +82,8 @@ class ModuleFileUnmarshaller {
       jaxbContexts.put(UpgradePack.class, ctx);
       jaxbContexts.put(ConfigUpgradePack.class, ctx);
       jaxbContexts.put(ServiceMetainfoXml.class, JAXBContext.newInstance(ServiceMetainfoXml.class));
+      jaxbContexts.put(ExtensionMetainfoXml.class, JAXBContext.newInstance(ExtensionMetainfoXml.class));
+      jaxbContexts.put(ExtensionsXml.class, JAXBContext.newInstance(ExtensionsXml.class));
     } catch (JAXBException e) {
       throw new RuntimeException (e);
     }

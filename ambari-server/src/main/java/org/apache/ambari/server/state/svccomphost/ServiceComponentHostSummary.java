@@ -24,6 +24,7 @@ import org.apache.ambari.server.api.services.AmbariMetaInfo;
 import org.apache.ambari.server.orm.entities.HostComponentStateEntity;
 import org.apache.ambari.server.orm.entities.HostEntity;
 import org.apache.ambari.server.state.ComponentInfo;
+import org.apache.ambari.server.state.ExtensionId;
 import org.apache.ambari.server.state.StackId;
 import org.apache.ambari.server.state.State;
 import org.apache.commons.lang.StringUtils;
@@ -45,12 +46,17 @@ public class ServiceComponentHostSummary  {
   private Set<String> versions;
 
 
-  public ServiceComponentHostSummary(AmbariMetaInfo ambariMetaInfo, HostEntity host, String stackName, String stackVersion) throws AmbariException {
-    allHostComponents = host.getHostComponentStateEntities();
+  public ServiceComponentHostSummary(HostEntity host) throws AmbariException {
     haveAdvertisedVersion = new HashSet<HostComponentStateEntity>();
     waitingToAdvertiseVersion = new HashSet<HostComponentStateEntity>();
     noVersionToAdvertise = new HashSet<HostComponentStateEntity>();
     versions = new HashSet<String>();
+    allHostComponents = host.getHostComponentStateEntities();
+  }
+
+
+  public ServiceComponentHostSummary(AmbariMetaInfo ambariMetaInfo, HostEntity host, String stackName, String stackVersion) throws AmbariException {
+    this(host);
 
     for (HostComponentStateEntity hostComponentStateEntity: allHostComponents) {
       ComponentInfo compInfo = ambariMetaInfo.getComponent(
@@ -73,6 +79,30 @@ public class ServiceComponentHostSummary  {
 
   public ServiceComponentHostSummary(AmbariMetaInfo ambariMetaInfo, HostEntity host, StackId stackId) throws AmbariException {
     this(ambariMetaInfo, host, stackId.getStackName(), stackId.getStackVersion());
+  }
+
+  public ServiceComponentHostSummary(AmbariMetaInfo ambariMetaInfo, HostEntity host, ExtensionId extensionId) throws AmbariException {
+    this(host);
+
+    for (HostComponentStateEntity hostComponentStateEntity: allHostComponents) {
+      ComponentInfo compInfo = ambariMetaInfo.getExtensionComponentSafe(
+	  extensionId.getExtensionName(), extensionId.getExtensionVersion(), hostComponentStateEntity.getServiceName(),
+          hostComponentStateEntity.getComponentName());
+
+      if (compInfo != null) {
+        if (!compInfo.isVersionAdvertised()) {
+          // Some Components cannot advertise a version. E.g., ZKF, AMBARI_METRICS, Kerberos
+          noVersionToAdvertise.add(hostComponentStateEntity);
+        } else {
+          if (hostComponentStateEntity.getVersion() == null || hostComponentStateEntity.getVersion().isEmpty() || hostComponentStateEntity.getVersion().equalsIgnoreCase(State.UNKNOWN.toString())) {
+            waitingToAdvertiseVersion.add(hostComponentStateEntity);
+          } else {
+            haveAdvertisedVersion.add(hostComponentStateEntity);
+            versions.add(hostComponentStateEntity.getVersion());
+          }
+        }
+      }
+    }
   }
 
   public Collection<HostComponentStateEntity> getHaveAdvertisedVersion() {

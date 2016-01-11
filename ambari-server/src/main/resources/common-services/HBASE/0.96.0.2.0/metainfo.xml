@@ -32,6 +32,7 @@
           <category>MASTER</category>
           <cardinality>1+</cardinality>
           <versionAdvertised>true</versionAdvertised>
+          <setupHA>true</setupHA>
           <timelineAppid>HBASE</timelineAppid>
           <dependencies>
             <dependency>

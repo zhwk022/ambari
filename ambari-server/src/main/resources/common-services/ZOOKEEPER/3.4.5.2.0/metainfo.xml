@@ -31,6 +31,8 @@
           <category>MASTER</category>
           <cardinality>1+</cardinality>
           <versionAdvertised>true</versionAdvertised>
+          <setupHA>true</setupHA>
+          <idealMinimum>3</idealMinimum>
           <commandScript>
             <script>scripts/zookeeper_server.py</script>
             <scriptType>PYTHON</scriptType>

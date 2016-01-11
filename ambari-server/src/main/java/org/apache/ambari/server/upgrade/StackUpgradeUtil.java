@@ -50,6 +50,7 @@ public class StackUpgradeUtil {
 
   @Transactional
   public void updateStackDetails(String stackName, String stackVersion) {
+    // TODO - need to handle extension upgrade as well
     ClusterDAO clusterDAO = injector.getInstance(ClusterDAO.class);
     StackDAO stackDAO = injector.getInstance(StackDAO.class);
     List<Long> clusterIds = new ArrayList<Long>();

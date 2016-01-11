@@ -18,6 +18,8 @@
 
 package org.apache.ambari.server.controller;
 
+import org.apache.ambari.server.state.PropertyDependencyInfo;
+
 
 public class StackConfigurationDependencyResponse {
 
@@ -28,7 +30,9 @@ public class StackConfigurationDependencyResponse {
   private String dependencyName;
   private String dependencyType;
 
-
+  public StackConfigurationDependencyResponse(PropertyDependencyInfo info) {
+    this(info.getName(), info.getType());
+  }
 
   public StackConfigurationDependencyResponse(String dependencyName) {
     this.dependencyName = dependencyName;
