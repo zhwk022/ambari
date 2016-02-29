@@ -51,13 +51,14 @@ class HbaseClientWindows(HbaseClient):
 @OsFamilyImpl(os_family=OsFamilyImpl.DEFAULT)
 class HbaseClientDefault(HbaseClient):
   def get_stack_to_component(self):
-    return {"HDP": "hbase-client"}
+    import params
+    return {params.stack_name: "hbase-client"}
 
   def pre_upgrade_restart(self, env, upgrade_type=None):
     import params
     env.set_params(params)
 
-    if params.version and compare_versions(format_hdp_stack_version(params.version), '2.2.0.0') >= 0:
+    if params.version and compare_versions(format_hdp_stack_version(params.version), params.stack_version_ru_support) >= 0:
       conf_select.select(params.stack_name, "hbase", params.version)
       hdp_select.select("hbase-client", params.version)
 

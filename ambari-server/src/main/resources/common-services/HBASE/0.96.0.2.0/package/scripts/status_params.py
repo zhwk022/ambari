@@ -25,7 +25,7 @@ from resource_management.libraries.functions import get_kinit_path
 from resource_management.libraries.script.script import Script
 
 # a map of the Ambari role to the component name
-# for use with /usr/hdp/current/<component>
+# for use with <stack_dir>/current/<component>
 SERVER_ROLE_DIRECTORY_MAP = {
   'HBASE_MASTER' : 'hbase-master',
   'HBASE_REGIONSERVER' : 'hbase-regionserver',
@@ -49,7 +49,11 @@ else:
   kinit_path_local = get_kinit_path(default('/configurations/kerberos-env/executable_search_paths', None))
   tmp_dir = Script.get_tmp_dir()
 
+  # Stack related params
+  stack_version_ru_support = config['configurations']['cluster-env']['stack_version_ru_support']
+  stack_dir = config['configurations']['cluster-env']['stack_dir']
+
   hbase_conf_dir = "/etc/hbase/conf"
   limits_conf_dir = "/etc/security/limits.d"
-  if Script.is_hdp_stack_greater_or_equal("2.2"):
-    hbase_conf_dir = format("/usr/hdp/current/{component_directory}/conf")
+  if Script.is_hdp_stack_greater_or_equal(stack_version_ru_support):
+    hbase_conf_dir = format("{stack_dir}/current/{component_directory}/conf")

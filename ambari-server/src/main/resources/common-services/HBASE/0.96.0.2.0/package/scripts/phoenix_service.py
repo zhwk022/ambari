@@ -22,7 +22,7 @@ from resource_management.core.resources.system import Execute
 from resource_management.core.resources.system import File
 from resource_management.libraries.functions import check_process_status, format
 
-# Note: Phoenix Query Server is only applicable to HDP-2.3 and above.
+# Note: Phoenix Query Server is only applicable to stack_version_phoenix_support and above.
 def phoenix_service(action = 'start'): # 'start', 'stop', 'status'
     # Note: params/status_params should already be imported before calling phoenix_service()
     pid_file = format("{pid_dir}/phoenix-{hbase_user}-server.pid")

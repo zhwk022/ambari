@@ -57,6 +57,16 @@
         <description>Stack version from which hadoop-hdfs-nfs3 is supported</description>
     </property>
     <property>
+        <name>stack_version_ranger_support</name>
+        <value>2.3.0.0</value>
+        <description>Stack version from which ranger is supported</description>
+    </property>
+    <property>
+        <name>stack_version_phoenix_support</name>
+        <value>2.3.0.0</value>
+        <description>Stack version from which Phoenix Query Server is supported</description>
+    </property>
+    <property>
         <name>stack_version_oozie_preconfiguration_support</name>
         <value>2.3.0.0</value>
         <description>Stack version from which oozie-server special case in the PRE-UPGRADE phase is supported</description>

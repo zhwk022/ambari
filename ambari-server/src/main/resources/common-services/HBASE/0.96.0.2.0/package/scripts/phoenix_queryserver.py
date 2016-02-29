@@ -23,7 +23,7 @@ from resource_management.libraries.script import Script
 from phoenix_service import phoenix_service
 from hbase import hbase
 
-# Note: Phoenix Query Server is only applicable to HDP-2.3 and above.
+# Note: Phoenix Query Server is only applicable to stack_version_phoenix_support and above.
 class PhoenixQueryServer(Script):
 
   def install(self, env):
@@ -33,7 +33,8 @@ class PhoenixQueryServer(Script):
 
 
   def get_stack_to_component(self):
-    return {"HDP": "phoenix-server"}
+    import params
+    return {params.stack_name: "phoenix-server"}
 
 
   def configure(self, env):
@@ -59,7 +60,7 @@ class PhoenixQueryServer(Script):
     import params
     env.set_params(params)
 
-    if Script.is_hdp_stack_greater_or_equal("2.3"):
+    if Script.is_hdp_stack_greater_or_equal(params.stack_version_phoenix_support):
       # phoenix uses hbase configs
       conf_select.select(params.stack_name, "hbase", params.version)
       hdp_select.select("phoenix-server", params.version)

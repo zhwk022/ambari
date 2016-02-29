@@ -42,12 +42,16 @@ exec_tmp_dir = Script.get_tmp_dir()
 sudo = AMBARI_SUDO_BINARY
 
 stack_name = default("/hostLevelParams/stack_name", None)
+stack_dir = config['configurations']['cluster-env']['stack_dir']
 version = default("/commandParams/version", None)
 component_directory = status_params.component_directory
 etc_prefix_dir = "/etc/hbase"
 
 stack_version_unformatted = str(config['hostLevelParams']['stack_version'])
-hdp_stack_version = format_hdp_stack_version(stack_version_unformatted)
+stack_version_formatted = format_hdp_stack_version(stack_version_unformatted)
+stack_version_ru_support = config['configurations']['cluster-env']['stack_version_ru_support']
+stack_version_ranger_support = config['configurations']['cluster-env']['stack_version_ranger_support']
+stack_version_phoenix_support = config['configurations']['cluster-env']['stack_version_phoenix_support']
 
 # hadoop default parameters
 hadoop_bin_dir = hdp_select.get_hadoop_dir("bin")
@@ -58,19 +62,19 @@ region_drainer = "/usr/lib/hbase/bin/draining_servers.rb"
 hbase_cmd = "/usr/lib/hbase/bin/hbase"
 hbase_max_direct_memory_size = None
 
-# hadoop parameters for 2.2+
-if Script.is_hdp_stack_greater_or_equal("2.2"):
-  daemon_script = format('/usr/hdp/current/hbase-client/bin/hbase-daemon.sh')
-  region_mover = format('/usr/hdp/current/hbase-client/bin/region_mover.rb')
-  region_drainer = format('/usr/hdp/current/hbase-client/bin/draining_servers.rb')
-  hbase_cmd = format('/usr/hdp/current/hbase-client/bin/hbase')
+# hadoop parameters for stack_version_ru_support+
+if Script.is_hdp_stack_greater_or_equal(stack_version_ru_support):
+  daemon_script = format('{stack_dir}/current/hbase-client/bin/hbase-daemon.sh')
+  region_mover = format('{stack_dir}/current/hbase-client/bin/region_mover.rb')
+  region_drainer = format('{stack_dir}/current/hbase-client/bin/draining_servers.rb')
+  hbase_cmd = format('{stack_dir}/current/hbase-client/bin/hbase')
 
   hbase_max_direct_memory_size  = default('configurations/hbase-env/hbase_max_direct_memory_size', None)
 
-  daemon_script=format("/usr/hdp/current/{component_directory}/bin/hbase-daemon.sh")
-  region_mover = format("/usr/hdp/current/{component_directory}/bin/region_mover.rb")
-  region_drainer = format("/usr/hdp/current/{component_directory}/bin/draining_servers.rb")
-  hbase_cmd = format("/usr/hdp/current/{component_directory}/bin/hbase")
+  daemon_script=format("{stack_dir}/current/{component_directory}/bin/hbase-daemon.sh")
+  region_mover = format("{stack_dir}/current/{component_directory}/bin/region_mover.rb")
+  region_drainer = format("{stack_dir}/current/{component_directory}/bin/draining_servers.rb")
+  hbase_cmd = format("{stack_dir}/current/{component_directory}/bin/hbase")
 
 
 hbase_conf_dir = status_params.hbase_conf_dir
@@ -80,7 +84,7 @@ hbase_user_nofile_limit = default("/configurations/hbase-env/hbase_user_nofile_l
 hbase_user_nproc_limit = default("/configurations/hbase-env/hbase_user_nproc_limit", "16000")
 
 # no symlink for phoenix-server at this point
-phx_daemon_script = '/usr/hdp/current/phoenix-server/bin/queryserver.py'
+phx_daemon_script = '{stack_dir}/current/phoenix-server/bin/queryserver.py'
 
 hbase_excluded_hosts = config['commandParams']['excluded_hosts']
 hbase_drain_only = default("/commandParams/mark_draining_only",False)
@@ -296,7 +300,7 @@ if has_ranger_admin:
 
   downloaded_custom_connector = format("{exec_tmp_dir}/{jdbc_jar_name}")
   driver_curl_source = format("{jdk_location}/{jdbc_symlink_name}")
-  driver_curl_target = format("/usr/hdp/current/{component_directory}/lib/{jdbc_jar_name}")
+  driver_curl_target = format("{stack_dir}/current/{component_directory}/lib/{jdbc_jar_name}")
 
   hbase_ranger_plugin_config = {
     'username': repo_config_username,
@@ -336,11 +340,11 @@ if security_enabled:
     hbase_coprocessor_master_classes = "org.apache.hadoop.hbase.security.access.AccessController"
     hbase_coprocessor_regionserver_classes = "org.apache.hadoop.hbase.security.access.AccessController"
     hbase_coprocessor_region_classes = "org.apache.hadoop.hbase.security.token.TokenProvider,org.apache.hadoop.hbase.security.access.SecureBulkLoadEndpoint,org.apache.hadoop.hbase.security.access.AccessController"
-  elif xml_configurations_supported: # HDP stack 2.3+ ranger plugin enabled
+  elif xml_configurations_supported: # stack_version_ranger_support+
     hbase_coprocessor_master_classes = "org.apache.ranger.authorization.hbase.RangerAuthorizationCoprocessor "
     hbase_coprocessor_regionserver_classes = "org.apache.ranger.authorization.hbase.RangerAuthorizationCoprocessor"
     hbase_coprocessor_region_classes = "org.apache.hadoop.hbase.security.token.TokenProvider,org.apache.hadoop.hbase.security.access.SecureBulkLoadEndpoint,org.apache.ranger.authorization.hbase.RangerAuthorizationCoprocessor"
-  else: # HDP Stack 2.2 and less / ranger plugin enabled
+  else: # stack_version_ru_support and less / ranger plugin enabled
     hbase_coprocessor_master_classes = "com.xasecure.authorization.hbase.XaSecureAuthorizationCoprocessor"
     hbase_coprocessor_regionserver_classes = "com.xasecure.authorization.hbase.XaSecureAuthorizationCoprocessor"
     hbase_coprocessor_region_classes = "org.apache.hadoop.hbase.security.token.TokenProvider,org.apache.hadoop.hbase.security.access.SecureBulkLoadEndpoint,com.xasecure.authorization.hbase.XaSecureAuthorizationCoprocessor"
