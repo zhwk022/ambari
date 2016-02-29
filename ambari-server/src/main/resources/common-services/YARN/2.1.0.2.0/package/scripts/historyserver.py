@@ -70,14 +70,15 @@ class HistoryserverWindows(HistoryServer):
 @OsFamilyImpl(os_family=OsFamilyImpl.DEFAULT)
 class HistoryServerDefault(HistoryServer):
   def get_stack_to_component(self):
-    return {"HDP": "hadoop-mapreduce-historyserver"}
+    import params
+    return {params.stack_name: "hadoop-mapreduce-historyserver"}
 
   def pre_upgrade_restart(self, env, upgrade_type=None):
     Logger.info("Executing Stack Upgrade pre-restart")
     import params
     env.set_params(params)
 
-    if params.version and compare_versions(format_hdp_stack_version(params.version), '2.2.0.0') >= 0:
+    if params.version and compare_versions(format_hdp_stack_version(params.version), params.stack_version_ru_support) >= 0:
       conf_select.select(params.stack_name, "hadoop", params.version)
       hdp_select.select("hadoop-mapreduce-historyserver", params.version)
       # MC Hammer said, "Can't touch this"
@@ -91,7 +92,7 @@ class HistoryServerDefault(HistoryServer):
     env.set_params(params)
     self.configure(env) # FOR SECURITY
 
-    if params.hdp_stack_version_major and compare_versions(params.hdp_stack_version_major, '2.2.0.0') >= 0:
+    if params.stack_version_formatted and compare_versions(params.stack_version_formatted, params.stack_version_ru_support) >= 0:
       # MC Hammer said, "Can't touch this"
       resource_created = copy_to_hdfs(
         "mapreduce",
@@ -111,7 +112,7 @@ class HistoryServerDefault(HistoryServer):
       if resource_created:
         params.HdfsResource(None, action="execute")
     else:
-      # In HDP 2.1, tez.tar.gz was copied to a different folder in HDFS.
+      # In version < stack_version_ru_support tez.tar.gz was copied to a different folder in HDFS.
       install_tez_jars()
 
     service('historyserver', action='start', serviceName='mapreduce')

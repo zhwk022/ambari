@@ -189,7 +189,7 @@ def yarn(name = None):
 
   # During RU, Core Masters and Slaves need hdfs-site.xml
   # TODO, instead of specifying individual configs, which is susceptible to breaking when new configs are added,
-  # RU should rely on all available in /usr/hdp/<version>/hadoop/conf
+  # RU should rely on all available in {stack_dir}/<version>/hadoop/conf
   if 'hdfs-site' in params.config['configurations']:
     XmlConfig("hdfs-site.xml",
               conf_dir=params.hadoop_conf_dir,
@@ -252,8 +252,8 @@ def yarn(name = None):
        cd_access="a",
     )
 
-    # if HDP stack is greater than/equal to 2.2, mkdir for state store property (added in 2.2)
-    if (Script.is_hdp_stack_greater_or_equal("2.2")):
+    # if stack is greater than/equal to stack_version_ru_support, mkdir for state store property (added in stack_version_ru_support)
+    if (Script.is_hdp_stack_greater_or_equal(params.stack_version_ru_support)):
       Directory(params.ats_leveldb_state_store_dir,
        owner=params.yarn_user,
        group=params.user_group,
