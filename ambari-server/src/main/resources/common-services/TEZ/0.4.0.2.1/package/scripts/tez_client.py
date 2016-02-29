@@ -49,13 +49,14 @@ class TezClient(Script):
 class TezClientLinux(TezClient):
 
   def get_stack_to_component(self):
-    return {"HDP": "hadoop-client"}
+    import params
+    return {params.stack_name: "hadoop-client"}
 
   def pre_upgrade_restart(self, env, upgrade_type=None):
     import params
     env.set_params(params)
 
-    if params.version and compare_versions(format_hdp_stack_version(params.version), '2.2.0.0') >= 0:
+    if params.version and compare_versions(format_hdp_stack_version(params.version), params.stack_version_ru_support) >= 0:
       conf_select.select(params.stack_name, "tez", params.version)
       conf_select.select(params.stack_name, "hadoop", params.version)
       hdp_select.select("hadoop-client", params.version)

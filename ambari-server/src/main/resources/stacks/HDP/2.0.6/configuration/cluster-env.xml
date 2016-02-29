@@ -72,6 +72,11 @@
         <description>Stack version from which oozie-server special case in the PRE-UPGRADE phase is supported</description>
     </property>
     <property>
+        <name>stack_version_tez_symlink_support</name>
+        <value>2.3.0.0</value>
+        <description>Stack version from which tez-client symlink for configuration is supported</description>
+    </property>
+    <property>
         <name>security_enabled</name>
         <value>false</value>
         <description>Hadoop Security</description>

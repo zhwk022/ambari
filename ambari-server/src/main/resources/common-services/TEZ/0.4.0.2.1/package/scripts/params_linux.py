@@ -32,10 +32,13 @@ config = Script.get_config()
 tmp_dir = Script.get_tmp_dir()
 
 stack_name = default("/hostLevelParams/stack_name", None)
+stack_dir = config['configurations']['cluster-env']['stack_dir']
 
 # This is expected to be of the form #.#.#.#
 stack_version_unformatted = str(config['hostLevelParams']['stack_version'])
-hdp_stack_version = format_hdp_stack_version(stack_version_unformatted)
+stack_version_formatted = format_hdp_stack_version(stack_version_unformatted)
+stack_version_ru_support = config['configurations']['cluster-env']['stack_version_ru_support']
+stack_version_tez_symlink_support = config['configurations']['cluster-env']['stack_version_tez_symlink_support']
 
 # New Cluster Stack Version that is defined during the RESTART of a Rolling Upgrade
 version = default("/commandParams/version", None)
@@ -48,15 +51,16 @@ tez_etc_dir = "/etc/tez"
 config_dir = "/etc/tez/conf"
 tez_examples_jar = "/usr/lib/tez/tez-mapreduce-examples*.jar"
 
-# hadoop parameters for 2.2+
-if Script.is_hdp_stack_greater_or_equal("2.2"):
-  tez_examples_jar = "/usr/hdp/current/tez-client/tez-examples*.jar"
+# hadoop parameters for stack_version_ru_support+
+if Script.is_hdp_stack_greater_or_equal(stack_version_ru_support):
+  tez_examples_jar = "{stack_dir}/current/tez-client/tez-examples*.jar"
 
-# tez only started linking /usr/hdp/x.x.x.x/tez-client/conf in HDP 2.3+
-if Script.is_hdp_stack_greater_or_equal("2.3"):
+# tez only started linking <stack_dir>/x.x.x.x/tez-client/conf in stack_version_tez_symlink_support+
+if Script.is_hdp_stack_greater_or_equal(stack_version_tez_symlink_support):
   # !!! use realpath for now since the symlink exists but is broken and a
   # broken symlink messes with the DirectoryProvider class
-  config_dir = os.path.realpath("/usr/hdp/current/tez-client/conf")
+  config_path = os.path.join(stack_dir, "current/tez-client/conf")
+  config_dir = os.path.realpath(config_path)
 
 kinit_path_local = get_kinit_path(default('/configurations/kerberos-env/executable_search_paths', None))
 security_enabled = config['configurations']['cluster-env']['security_enabled']
