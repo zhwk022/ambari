@@ -32,7 +32,8 @@ from resource_management.libraries.functions.version import compare_versions, fo
 class NFSGateway(Script):
 
   def get_stack_to_component(self):
-    return {"HDP": "hadoop-hdfs-nfs3"}
+    import params
+    return {params.stack_name: "hadoop-hdfs-nfs3"}
 
   def install(self, env):
     import params
@@ -45,7 +46,7 @@ class NFSGateway(Script):
     import params
     env.set_params(params)
 
-    if Script.is_hdp_stack_greater_or_equal('2.3.0.0'):
+    if Script.is_hdp_stack_greater_or_equal(params.stack_version_nfs_support):
       conf_select.select(params.stack_name, "hadoop", params.version)
       hdp_select.select("hadoop-hdfs-nfs3", params.version)
 

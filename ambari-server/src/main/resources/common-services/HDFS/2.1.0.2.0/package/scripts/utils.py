@@ -134,7 +134,7 @@ def kill_zkfc(zkfc_user):
   """
   There are two potential methods for failing over the namenode, especially during a Rolling Upgrade.
   Option 1. Kill zkfc on primary namenode provided that the secondary is up and has zkfc running on it.
-  Option 2. Silent failover (not supported as of HDP 2.2.0.0)
+  Option 2. Silent failover (not supported as of stack_version_ru_support)
   :param zkfc_user: User that started the ZKFC process.
   :return: Return True if ZKFC was killed, otherwise, false.
   """
@@ -224,12 +224,12 @@ def service(action=None, name=None, user=None, options="", create_pid_dir=False,
     hadoop_secure_dn_pid_file = format("{hadoop_secure_dn_pid_dir}/hadoop_secure_dn.pid")
 
     # At Champlain stack and further, we may start datanode as a non-root even in secure cluster
-    if not (params.hdp_stack_version != "" and compare_versions(params.hdp_stack_version, '2.2') >= 0) or params.secure_dn_ports_are_in_use:
+    if not (params.stack_version_unformatted != "" and compare_versions(params.stack_version_unformatted, params.stack_version_ru_support) >= 0) or params.secure_dn_ports_are_in_use:
       user = "root"
       pid_file = format(
         "{hadoop_pid_dir_prefix}/{hdfs_user}/hadoop-{hdfs_user}-{name}.pid")
 
-    if action == 'stop' and (params.hdp_stack_version != "" and compare_versions(params.hdp_stack_version, '2.2') >= 0) and \
+    if action == 'stop' and (params.stack_version_unformatted != "" and compare_versions(params.stack_version_unformatted, params.stack_version_ru_support) >= 0) and \
       os.path.isfile(hadoop_secure_dn_pid_file):
         # We need special handling for this case to handle the situation
         # when we configure non-root secure DN and then restart it
@@ -351,11 +351,11 @@ def get_hdfs_binary(distro_component_name):
   """
   import params
   hdfs_binary = "hdfs"
-  if params.stack_name == "HDP":
-    # This was used in HDP 2.1 and earlier
-    hdfs_binary = "hdfs"
-    if Script.is_hdp_stack_greater_or_equal("2.2"):
-      hdfs_binary = "/usr/hdp/current/{0}/bin/hdfs".format(distro_component_name)
+  #if params.stack_name == "HDP":
+  #  # This was used in HDP 2.1 and earlier
+  #  hdfs_binary = "hdfs"
+  if Script.is_hdp_stack_greater_or_equal(params.stack_version_ru_support):
+    hdfs_binary = "{0}/current/{1}/bin/hdfs".format(params.stack_dir, distro_component_name)
 
   return hdfs_binary
 

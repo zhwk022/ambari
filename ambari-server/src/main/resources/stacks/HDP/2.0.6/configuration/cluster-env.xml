@@ -32,6 +32,21 @@
         <description>Stack version from which rolling upgrade is supported and installation layout changed</description>
     </property>
     <property>
+        <name>stack_version_ranger_support</name>
+        <value>2.2.0.0</value>
+        <description>Stack version from which ranger is supported</description>
+    </property>
+    <property>
+        <name>stack_version_snappy_unsupport</name>
+        <value>2.2.0.0</value>
+        <description>Stack version from which snappy is not supported</description>
+    </property>
+    <property>
+        <name>stack_version_nfs_support</name>
+        <value>2.3.0.0</value>
+        <description>Stack version from which hadoop-hdfs-nfs3 is supported</description>
+    </property>
+    <property>
         <name>security_enabled</name>
         <value>false</value>
         <description>Hadoop Security</description>

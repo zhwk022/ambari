@@ -25,5 +25,6 @@ else:
   from params_linux import *
 
 host_sys_prepped = default("/hostLevelParams/host_sys_prepped", False)
+stack_version_nfs_support = config['configurations']['cluster-env']['stack_version_nfs_support']
 nfsgateway_heapsize = config['configurations']['hadoop-env']['nfsgateway_heapsize']
 retryAble = default("/commandParams/command_retry_enabled", False)

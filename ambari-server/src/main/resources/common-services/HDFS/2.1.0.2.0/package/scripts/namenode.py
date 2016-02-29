@@ -68,7 +68,8 @@ except ImportError:
 class NameNode(Script):
 
   def get_stack_to_component(self):
-    return {"HDP": "hadoop-hdfs-namenode"}
+    import params
+    return {params.stack_name: "hadoop-hdfs-namenode"}
 
   def get_hdfs_binary(self):
     """
@@ -190,7 +191,7 @@ class NameNodeDefault(NameNode):
     import params
     env.set_params(params)
 
-    if params.version and compare_versions(format_hdp_stack_version(params.version), '2.2.0.0') >= 0:
+    if params.version and compare_versions(format_hdp_stack_version(params.version), params.stack_version_ru_support) >= 0:
       # When downgrading an Express Upgrade, the first thing we do is to revert the symlinks.
       # Therefore, we cannot call this code in that scenario.
       call_if = [("rolling", "upgrade"), ("rolling", "downgrade"), ("nonrolling", "upgrade")]

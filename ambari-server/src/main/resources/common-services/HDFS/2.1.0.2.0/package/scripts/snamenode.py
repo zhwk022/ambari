@@ -64,14 +64,15 @@ class SNameNode(Script):
 class SNameNodeDefault(SNameNode):
 
   def get_stack_to_component(self):
-    return {"HDP": "hadoop-hdfs-secondarynamenode"}
+    import params
+    return {params.stack_name: "hadoop-hdfs-secondarynamenode"}
 
   def pre_upgrade_restart(self, env, upgrade_type=None):
     Logger.info("Executing Stack Upgrade pre-restart")
     import params
     env.set_params(params)
 
-    if params.version and compare_versions(format_hdp_stack_version(params.version), '2.2.0.0') >= 0:
+    if params.version and compare_versions(format_hdp_stack_version(params.version), params.stack_version_ru_support) >= 0:
       conf_select.select(params.stack_name, "hadoop", params.version)
       hdp_select.select("hadoop-hdfs-secondarynamenode", params.version)
 
