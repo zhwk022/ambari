@@ -32,8 +32,8 @@ def zookeeper_service(action='start', upgrade_type=None):
   import params
 
   # This path may be missing after Ambari upgrade. We need to create it.
-  if upgrade_type is None and not os.path.exists("/usr/hdp/current/zookeeper-server") and params.current_version \
-    and compare_versions(format_hdp_stack_version(params.version), '2.2.0.0') >= 0:
+  if upgrade_type is None and not os.path.exists(os.path.join(params.stack_dir, "/current/zookeeper-server")) and params.current_version \
+    and compare_versions(format_hdp_stack_version(params.version), params.stack_version_ru_support) >= 0:
     conf_select.select(params.stack_name, "zookeeper", params.current_version)
     hdp_select.select("zookeeper-server", params.version)
 

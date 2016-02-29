@@ -21,6 +21,16 @@
 -->
 
 <configuration>
+     <property>
+        <name>stack_dir</name>
+        <value>/usr/hdp</value>
+        <description>Directory prefix for stacks installation</description>
+    </property>
+    <property>
+        <name>stack_version_ru_support</name>
+        <value>2.2.0.0</value>
+        <description>Stack version from which rolling upgrade is supported and installation layout changed</description>
+    </property>
     <property>
         <name>security_enabled</name>
         <value>false</value>

@@ -24,7 +24,7 @@ from resource_management.libraries.functions import get_kinit_path
 from resource_management.libraries.script.script import Script
 
 # a map of the Ambari role to the component name
-# for use with /usr/hdp/current/<component>
+# for use with <stack_dir>/current/<component>
 SERVER_ROLE_DIRECTORY_MAP = {
   'ZOOKEEPER_SERVER' : 'zookeeper-server',
   'ZOOKEEPER_CLIENT' : 'zookeeper-client'
@@ -47,6 +47,10 @@ else:
   tmp_dir = Script.get_tmp_dir()
   zk_user =  config['configurations']['zookeeper-env']['zk_user']
 
+  # Stack related params
+  stack_version_ru_support = config['configurations']['cluster-env']['stack_version_ru_support']
+  stack_dir = config['configurations']['cluster-env']['stack_dir']
+
   config_dir = "/etc/zookeeper/conf"
-  if Script.is_hdp_stack_greater_or_equal("2.2"):
-    config_dir = format("/usr/hdp/current/{component_directory}/conf")
+  if Script.is_hdp_stack_greater_or_equal(stack_version_ru_support):
+    config_dir = format("{stack_dir}/current/{component_directory}/conf")

@@ -54,7 +54,8 @@ class ZookeeperClient(Script):
 @OsFamilyImpl(os_family=OsFamilyImpl.DEFAULT)
 class ZookeeperClientLinux(ZookeeperClient):
   def get_stack_to_component(self):
-    return {"HDP": "zookeeper-client"}
+    import params
+    return {params.stack_name: "zookeeper-client"}
 
   def install(self, env):
     self.install_packages(env)
@@ -65,7 +66,7 @@ class ZookeeperClientLinux(ZookeeperClient):
     import params
     env.set_params(params)
 
-    if params.version and compare_versions(format_hdp_stack_version(params.version), '2.2.0.0') >= 0:
+    if params.version and compare_versions(format_hdp_stack_version(params.version), params.stack_version_ru_support) >= 0:
       conf_select.select(params.stack_name, "zookeeper", params.version)
       hdp_select.select("zookeeper-client", params.version)
 
