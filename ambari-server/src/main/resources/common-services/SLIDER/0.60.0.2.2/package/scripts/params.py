@@ -41,7 +41,7 @@ stack_name = default("/hostLevelParams/stack_name", None)
 version = default("/commandParams/version", None)
 
 stack_version_unformatted = str(config['hostLevelParams']['stack_version'])
-hdp_stack_version = format_hdp_stack_version(stack_version_unformatted)
+stack_version_formatted = format_hdp_stack_version(stack_version_unformatted)
 
 #hadoop params
 hadoop_conf_dir = conf_select.get_hadoop_conf_dir()

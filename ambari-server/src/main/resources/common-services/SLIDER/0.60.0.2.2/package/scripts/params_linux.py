@@ -27,15 +27,18 @@ from resource_management.libraries.functions import get_kinit_path
 # server configurations
 config = Script.get_config()
 
-slider_home_dir = '/usr/hdp/current/slider-client'
+stack_dir = config['configurations']['cluster-env']['stack_dir']
+stack_version_ru_support = config['configurations']['cluster-env']['stack_version_ru_support']
+
+slider_home_dir = format('{stack_dir}/current/slider-client')
 
 #hadoop params
 slider_bin_dir = "/usr/lib/slider/bin"
-if Script.is_hdp_stack_greater_or_equal("2.2"):
+if Script.is_hdp_stack_greater_or_equal(stack_version_ru_support):
     slider_bin_dir = format('{slider_home_dir}/bin')
 
 slider_conf_dir = format("{slider_home_dir}/conf")
-storm_slider_conf_dir = '/usr/hdp/current/storm-slider-client/conf'
+storm_slider_conf_dir = format('{stack_dir}/current/storm-slider-client/conf')
 
 slider_lib_dir = format('{slider_home_dir}/lib')
 slider_tar_gz = format('{slider_lib_dir}/slider.tar.gz')

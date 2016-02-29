@@ -29,7 +29,7 @@ class SliderServiceCheck(Script):
   def service_check(self, env):
     import params
     env.set_params(params)
-    smoke_cmd = os.path.join(params.hdp_root, "Run-SmokeTests.cmd")
+    smoke_cmd = os.path.join(params.stack_root, "Run-SmokeTests.cmd")
     service = "SLIDER"
     Execute(format("cmd /C {smoke_cmd} {service}"), logoutput=True, user=params.hdfs_user)
 
@@ -38,7 +38,7 @@ class SliderServiceCheck(Script):
     import params
     env.set_params(params)
     
-    if Script.is_hdp_stack_greater_or_equal("2.2"):
+    if Script.is_hdp_stack_greater_or_equal(params.stack_version_ru_support):
       copy_to_hdfs("slider", params.user_group, params.hdfs_user, host_sys_prepped=params.host_sys_prepped)
     
     smokeuser_kinit_cmd = format(
