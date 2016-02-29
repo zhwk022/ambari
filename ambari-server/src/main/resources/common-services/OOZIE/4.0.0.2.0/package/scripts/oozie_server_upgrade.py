@@ -99,31 +99,31 @@ class OozieUpgrade(Script):
   def prepare_libext_directory():
     """
     Performs the following actions on libext:
-      - creates /usr/hdp/current/oozie/libext and recursively
+      - creates <stack_dir>/current/oozie/libext and recursively
       - set 777 permissions on it and its parents.
       - downloads JDBC driver JAR if needed
       - copies Falcon JAR for the Oozie WAR if needed
     """
     import params
 
-    # some versions of HDP don't need the lzo compression libraries
+    # some stack versions might don't need the lzo compression libraries
     target_version_needs_compression_libraries = compare_versions(
-      format_hdp_stack_version(params.version), '2.2.1.0') >= 0
+      format_hdp_stack_version(params.version), params.stack_version_lzo_unsupport) >= 0
 
     # ensure the directory exists
     Directory(params.oozie_libext_dir, mode = 0777)
 
     # get all hadooplzo* JAR files
     # hdp-select set hadoop-client has not run yet, therefore we cannot use
-    # /usr/hdp/current/hadoop-client ; we must use params.version directly
-    # however, this only works when upgrading beyond 2.2.0.0; don't do this
-    # for downgrade to 2.2.0.0 since hadoop-lzo will not be present
+    # <stack_dir>/current/hadoop-client ; we must use params.version directly
+    # however, this only works when upgrading beyond stack_version_ru_support; don't do this
+    # for downgrade to stack_version_ru_support since hadoop-lzo will not be present
     # This can also be called during a Downgrade.
-    # When a version is Intalled, it is responsible for downloading the hadoop-lzo packages
+    # When a version is installed, it is responsible for downloading the hadoop-lzo packages
     # if lzo is enabled.
     if params.lzo_enabled and (params.upgrade_direction == Direction.UPGRADE or target_version_needs_compression_libraries):
       hadoop_lzo_pattern = 'hadoop-lzo*.jar'
-      hadoop_client_new_lib_dir = format("/usr/hdp/{version}/hadoop/lib")
+      hadoop_client_new_lib_dir = format("{stack_dir}/{version}/hadoop/lib")
 
       files = glob.iglob(os.path.join(hadoop_client_new_lib_dir, hadoop_lzo_pattern))
       if not files:
@@ -143,10 +143,10 @@ class OozieUpgrade(Script):
           hadoop_client_new_lib_dir, hadoop_lzo_pattern))
 
     # copy ext ZIP to libext dir
-    oozie_ext_zip_file = '/usr/share/HDP-oozie/ext-2.2.zip'
+    oozie_ext_zip_file = params.ext_js_path
 
-    # something like /usr/hdp/current/oozie-server/libext/ext-2.2.zip
-    oozie_ext_zip_target_path = os.path.join(params.oozie_libext_dir, "ext-2.2.zip")
+    # something like <stack_dir>/current/oozie-server/libext/ext-2.2.zip
+    oozie_ext_zip_target_path = os.path.join(params.oozie_libext_dir, params.ext_js_file)
 
     if not os.path.isfile(oozie_ext_zip_file):
       raise Fail("Unable to copy {0} because it does not exist".format(oozie_ext_zip_file))
@@ -172,7 +172,7 @@ class OozieUpgrade(Script):
     # copy the Falcon JAR if needed; falcon has not upgraded yet, so we must
     # use the versioned falcon directory
     if params.has_falcon_host:
-      versioned_falcon_jar_directory = "/usr/hdp/{0}/falcon/oozie/ext/falcon-oozie-el-extension-*.jar".format(stack_version)
+      versioned_falcon_jar_directory = "{0}/{1}/falcon/oozie/ext/falcon-oozie-el-extension-*.jar".format(params.stack_dir, stack_version)
       Logger.info("Copying {0} to {1}".format(versioned_falcon_jar_directory, params.oozie_libext_dir))
 
       Execute(format('{sudo} cp {versioned_falcon_jar_directory} {oozie_libext_dir}'))
@@ -238,10 +238,10 @@ class OozieUpgrade(Script):
     # the database upgrade requires the db driver JAR, but since we have
     # not yet run hdp-select to upgrade the current points, we have to use
     # the versioned libext directory as the location[[-vufdtffr,
-    versioned_libext_dir = "/usr/hdp/{0}/oozie/libext".format(stack_version)
+    versioned_libext_dir = "{0}/{1}/oozie/libext".format(params.stack_dir, stack_version)
     oozie.download_database_library_if_needed(target_directory=versioned_libext_dir)
 
-    database_upgrade_command = "/usr/hdp/{0}/oozie/bin/ooziedb.sh upgrade -run".format(stack_version)
+    database_upgrade_command = "{0}/{1}/oozie/bin/ooziedb.sh upgrade -run".format(params.stack_dir, stack_version)
     Execute(database_upgrade_command, user=params.oozie_user, logoutput=True)
 
     # install new sharelib to HDFS
@@ -285,8 +285,8 @@ class OozieUpgrade(Script):
     stack_version = upgrade_stack[1]
 
     # install new sharelib to HDFS
-    sharelib_command = "/usr/hdp/{0}/oozie/bin/oozie-setup.sh sharelib create -fs {1}".format(
-      stack_version, params.fs_root)
+    sharelib_command = "{0}/{1}/oozie/bin/oozie-setup.sh sharelib create -fs {2}".format(
+      params.stack_dir, stack_version, params.fs_root)
 
     Execute(sharelib_command, user=params.oozie_user, logoutput=True)
 

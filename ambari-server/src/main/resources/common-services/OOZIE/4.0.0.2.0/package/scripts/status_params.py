@@ -25,7 +25,7 @@ from resource_management.libraries.functions import get_kinit_path
 from resource_management.libraries.script.script import Script
 
 # a map of the Ambari role to the component name
-# for use with /usr/hdp/current/<component>
+# for use with <stack_dir>/current/<component>
 SERVER_ROLE_DIRECTORY_MAP = {
   'OOZIE_SERVER' : 'oozie-server',
   'OOZIE_CLIENT' : 'oozie-client',
@@ -44,12 +44,15 @@ else:
   oozie_pid_dir = config['configurations']['oozie-env']['oozie_pid_dir']
   pid_file = format("{oozie_pid_dir}/oozie.pid")
 
+  stack_dir = config['configurations']['cluster-env']['stack_dir']
+  stack_version_ru_support = config['configurations']['cluster-env']['stack_version_ru_support']
+
   security_enabled = config['configurations']['cluster-env']['security_enabled']
   kinit_path_local = get_kinit_path(default('/configurations/kerberos-env/executable_search_paths', None))
 
   conf_dir = "/etc/oozie/conf"
-  if Script.is_hdp_stack_greater_or_equal("2.2"):
-    conf_dir = format("/usr/hdp/current/{component_directory}/conf")
+  if Script.is_hdp_stack_greater_or_equal(stack_version_ru_support):
+    conf_dir = format("{stack_dir}/current/{component_directory}/conf")
 
   tmp_dir = Script.get_tmp_dir()
   oozie_user = config['configurations']['oozie-env']['oozie_user']

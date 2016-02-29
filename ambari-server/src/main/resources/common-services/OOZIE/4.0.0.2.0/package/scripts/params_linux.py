@@ -45,17 +45,22 @@ hostname = config["hostname"]
 # New Cluster Stack Version that is defined during the RESTART of a Rolling Upgrade
 version = default("/commandParams/version", None)
 stack_name = default("/hostLevelParams/stack_name", None)
+stack_dir = config['configurations']['cluster-env']['stack_dir']
+stack_shared_dir = config['configurations']['cluster-env']['stack_shared_dir']
 upgrade_direction = default("/commandParams/upgrade_direction", None)
 
 stack_version_unformatted = str(config['hostLevelParams']['stack_version'])
-hdp_stack_version = format_hdp_stack_version(stack_version_unformatted)
+stack_version_formatted = format_hdp_stack_version(stack_version_unformatted)
+stack_version_ru_support = config['configurations']['cluster-env']['stack_version_ru_support']
+stack_version_lzo_unsupport = config['configurations']['cluster-env']['stack_version_lzo_unsupport']
+stack_version_oozie_preconfiguration_support = config['configurations']['cluster-env']['stack_version_oozie_preconfiguration_support']
 
 hadoop_conf_dir = conf_select.get_hadoop_conf_dir()
 hadoop_bin_dir = hdp_select.get_hadoop_dir("bin")
 hadoop_lib_home = hdp_select.get_hadoop_dir("lib")
 
 #hadoop params
-if Script.is_hdp_stack_greater_or_equal("2.2"):
+if Script.is_hdp_stack_greater_or_equal(stack_version_ru_support):
   # something like 2.3.0.0-1234
   stack_version = None
   upgrade_stack = hdp_select._get_upgrade_stack()
@@ -65,25 +70,25 @@ if Script.is_hdp_stack_greater_or_equal("2.2"):
   # oozie-server or oozie-client, depending on role
   oozie_root = status_params.component_directory
 
-  # using the correct oozie root dir, format the correct location
-  oozie_lib_dir = format("/usr/hdp/current/{oozie_root}")
-  oozie_setup_sh = format("/usr/hdp/current/{oozie_root}/bin/oozie-setup.sh")
-  oozie_webapps_dir = format("/usr/hdp/current/{oozie_root}/oozie-server/webapps")
-  oozie_webapps_conf_dir = format("/usr/hdp/current/{oozie_root}/oozie-server/conf")
-  oozie_libext_dir = format("/usr/hdp/current/{oozie_root}/libext")
-  oozie_server_dir = format("/usr/hdp/current/{oozie_root}/oozie-server")
-  oozie_shared_lib = format("/usr/hdp/current/{oozie_root}/share")
-  oozie_home = format("/usr/hdp/current/{oozie_root}")
-  oozie_bin_dir = format("/usr/hdp/current/{oozie_root}/bin")
-  oozie_examples_regex = format("/usr/hdp/current/{oozie_root}/doc")
+  # using the correct oozie stack root dir, format the correct location
+  oozie_lib_dir = format("{stack_dir}/current/{oozie_root}")
+  oozie_setup_sh = format("{stack_dir}/current/{oozie_root}/bin/oozie-setup.sh")
+  oozie_webapps_dir = format("{stack_dir}/current/{oozie_root}/oozie-server/webapps")
+  oozie_webapps_conf_dir = format("{stack_dir}/current/{oozie_root}/oozie-server/conf")
+  oozie_libext_dir = format("{stack_dir}/current/{oozie_root}/libext")
+  oozie_server_dir = format("{stack_dir}/current/{oozie_root}/oozie-server")
+  oozie_shared_lib = format("{stack_dir}/current/{oozie_root}/share")
+  oozie_home = format("{stack_dir}/current/{oozie_root}")
+  oozie_bin_dir = format("{stack_dir}/current/{oozie_root}/bin")
+  oozie_examples_regex = format("{stack_dir}/current/{oozie_root}/doc")
 
   # set the falcon home for copying JARs; if in an upgrade, then use the version of falcon that
   # matches the version of oozie
-  falcon_home = '/usr/hdp/current/falcon-client'
+  falcon_home = format("{stack_dir}/current/falcon-client")
   if stack_version is not None:
-    falcon_home = '/usr/hdp/{0}/falcon'.format(stack_version)
+    falcon_home = '{0}/{1}/falcon'.format(stack_dir, stack_version)
 
-  conf_dir = format("/usr/hdp/current/{oozie_root}/conf")
+  conf_dir = format("{stack_dir}/current/{oozie_root}/conf")
   hive_conf_dir = format("{conf_dir}/action-conf/hive")
 
 else:
@@ -120,9 +125,8 @@ oozie_pid_dir = status_params.oozie_pid_dir
 pid_file = status_params.pid_file
 hadoop_jar_location = "/usr/lib/hadoop/"
 java_share_dir = "/usr/share/java"
-# for HDP1 it's "/usr/share/HDP-oozie/ext.zip"
 ext_js_file = "ext-2.2.zip"
-ext_js_path = format("/usr/share/HDP-oozie/{ext_js_file}")
+ext_js_path = format("{stack_shared_dir}-oozie/{ext_js_file}")
 security_enabled = config['configurations']['cluster-env']['security_enabled']
 oozie_heapsize = config['configurations']['oozie-env']['oozie_heapsize']
 oozie_permsize = config['configurations']['oozie-env']['oozie_permsize']
@@ -140,7 +144,7 @@ oozie_site = config['configurations']['oozie-site']
 # Need this for yarn.nodemanager.recovery.dir in yarn-site
 yarn_log_dir_prefix = config['configurations']['yarn-env']['yarn_log_dir_prefix']
 
-if security_enabled and Script.is_hdp_stack_less_than("2.2"):
+if security_enabled and Script.is_hdp_stack_less_than(stack_version_ru_support):
   #older versions of oozie have problems when using _HOST in principal
   oozie_site = dict(config['configurations']['oozie-site'])
   oozie_site['oozie.service.HadoopAccessorService.kerberos.principal'] = \
@@ -191,7 +195,7 @@ if https_port is not None:
 hdfs_site = config['configurations']['hdfs-site']
 fs_root = config['configurations']['core-site']['fs.defaultFS']
 
-if Script.is_hdp_stack_less_than("2.2"):
+if Script.is_hdp_stack_less_than(stack_version_ru_support):
   put_shared_lib_to_hdfs_cmd = format("hadoop --config {hadoop_conf_dir} dfs -put {oozie_shared_lib} {oozie_hdfs_user_dir}")
 # for newer
 else:

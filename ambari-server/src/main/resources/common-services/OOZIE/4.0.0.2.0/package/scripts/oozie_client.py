@@ -30,7 +30,8 @@ from oozie_service import oozie_service
 class OozieClient(Script):
 
   def get_stack_to_component(self):
-    return {"HDP": "oozie-client"}
+    import params
+    return {params.stack_name: "oozie-client"}
 
   def install(self, env):
     self.install_packages(env)
@@ -52,8 +53,8 @@ class OozieClient(Script):
     env.set_params(params)
 
     # this function should not execute if the version can't be determined or
-    # is not at least HDP 2.2.0.0
-    if not params.version or compare_versions(format_hdp_stack_version(params.version), '2.2.0.0') < 0:
+    # is not at least stack_version_ru_support
+    if not params.version or compare_versions(format_hdp_stack_version(params.version), params.stack_version_ru_support) < 0:
       return
 
     Logger.info("Executing Oozie Client Stack Upgrade pre-restart")

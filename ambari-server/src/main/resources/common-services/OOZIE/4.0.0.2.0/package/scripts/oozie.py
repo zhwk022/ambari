@@ -147,7 +147,7 @@ def oozie(is_server=False):
       owner=params.oozie_user
     )
 
-  if params.hdp_stack_version != "" and compare_versions(params.hdp_stack_version, '2.2') >= 0:
+  if params.stack_version_formatted != "" and compare_versions(params.stack_version_formatted, params.stack_version_ru_support) >= 0:
     File(format("{params.conf_dir}/adminusers.txt"),
       mode=0644,
       group=params.user_group,
@@ -201,7 +201,7 @@ def oozie_ownership():
 def prepare_war():
   """
   Attempt to call prepare-war command if the marker file doesn't exist or its content doesn't equal the expected command.
-  The marker file is stored in /usr/hdp/current/oozie-server/.prepare_war_cmd
+  The marker file is stored in <stack_dir>/current/oozie-server/.prepare_war_cmd
   """
   import params
 
@@ -323,7 +323,7 @@ def oozie_server_specific():
        mode = 0644,
   )
 
-  if params.hdp_stack_version != "" and compare_versions(params.hdp_stack_version, '2.2') >= 0:
+  if params.stack_version_formatted != "" and compare_versions(params.stack_version_formatted, params.stack_version_ru_support) >= 0:
     # Create hive-site and tez-site configs for oozie
     Directory(params.hive_conf_dir,
         create_parents = True,
