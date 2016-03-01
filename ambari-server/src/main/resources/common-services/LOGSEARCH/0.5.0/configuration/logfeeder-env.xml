@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
+
+
+<!-- This is a special config file for properties used to monitor status of the service -->
+<configuration>
+
+  <property>
+    <name>logfeeder_dir</name>
+    <value>/opt/logfeeder</value>
+    <description>Location where logfeeder will be installed to. If download_location is set to RPM, logfeeder will be downloaded to /usr/hdp/_version_/logfeeder</description>
+  </property>  
+
+  <property>
+    <name>logfeeder_pid_dir</name>
+    <value>/var/run/logfeeder</value>
+    <description>logfeeder Process ID Directory</description>
+  </property> 
+
+  <property>
+    <name>logfeeder_log_dir</name>
+    <value>/var/log/logfeeder</value>
+    <description>Log dir for logfeeder</description>
+  </property> 
+  
+  <property>
+    <name>logfeeder_user</name>
+    <value>logfeeder</value>
+    <property-type>USER</property-type>
+    <description>logfeeder user</description>
+  </property>  
+
+  <property>
+    <name>logfeeder_group</name>
+    <value>logfeeder</value>
+    <property-type>GROUP</property-type>
+    <description>logfeeder group</description>
+  </property> 
+
+  <property>
+    <name>logfeeder_max_mem</name>
+    <value>512m</value>
+    <description>Max memory for LogFeeder</description>
+  </property> 
+
+  <property>
+    <name>logfeeder_download_location</name>
+    <!-- <value>RPM</value> -->
+    <value>https://s3.amazonaws.com/publicrepo/logsearch-logfeeder.tgz</value>
+    <description>Location to download logfeeder tarball from (e.g. https://dl.dropboxusercontent.com/u/114020/logfeeder/logfeeder-portal.tar.gz)</description>
+  </property>  
+
+  <!-- system.properties -->
+
+  <property>
+    <name>content</name>
+    <description>This is the jinja template for config.json file</description>
+    <value># Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+logfeeder.checkpoint.folder={{logfeeder_pid_dir}}
+metrics.collector.hosts=http://{{metrics_collector_hosts}}:{{metrics_collector_port}}/ws/v1/timeline/metrics
+    </value>
+  </property>
+
+  
+</configuration>  

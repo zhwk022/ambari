@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
+<configuration>
+
+  <!-- Define configuration paramaters for service within Ambari: property name, default value and description (shown as help text) -->
+
+
+ <!--  <property>
+    <name>solr.cloudmode</name>
+    <value>true</value>
+    <description>Whether Solr should be started in Cloud mode</description>
+  </property>  
+  
+  <property>
+    <name>solr.dir</name>
+    <value>/opt/solr</value>
+    <description>Path to Solr root. If HDPSearch is selected, it will be installed under /opt/lucidworks-hdpsearch/solr/</description>
+  </property>  
+
+  <property>
+    <name>solr.download.location</name>
+    <value>HDPSEARCH</value>
+    <description>Location to download Solr from (e.g. https://archive.apache.org/dist/lucene/solr/5.3.0/solr-5.3.0.tgz). Set this to HDPSEARCH to download HDPSearch from yum repo instead</description>
+  </property>     -->
+  
+
+  <property>
+    <name>solr.znode</name>
+    <value>/logsearch</value>
+    <description>Zookeeper znode</description>
+  </property>  
+
+  <property>
+    <name>solr.minmem</name>
+    <value>{smart_solr_memory}</value>
+    <description>Solr minimum heap size e.g.512m </description>
+  </property> 
+
+  <property>
+    <name>solr.maxmem</name>
+    <value>{smart_solr_memory}</value>
+    <description>Solr maximum heap size e.g. 512m</description>
+  </property> 
+
+  <property>
+    <name>logsearch.solr.datadir</name>
+    <value>{smart_solr_datadir}</value>
+    <description>Dir for Logsearch Solr data</description>
+  </property> 
+  
+  <property>
+    <name>logsearch.solr.conf</name>
+    <value>/etc/logsearch/solr</value>
+    <description>Dir for Logsearch Solr configs</description>
+  </property> 
+  
+      
+</configuration>
+
