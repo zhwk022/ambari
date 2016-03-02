@@ -77,7 +77,7 @@ class KafkaBroker(Script):
     if params.is_supported_kafka_ranger:
       setup_ranger_kafka() #Ranger Kafka Plugin related call 
     daemon_cmd = format('source {params.conf_dir}/kafka-env.sh ; {params.kafka_bin} start')
-    no_op_test = format('ls {params.kafka_pid_file} >/dev/null 2>&1 && ps -p `cat {params.kafka_pid_file}` >/dev/null 2>&1')
+    no_op_test = format('ls {params.kafka_pid_file} >/dev/null 2>&1 && test $(ps --no-heading `cat {params.kafka_pid_file}`|wc -l) -eq 1 >/dev/null 2>&1')
     Execute(daemon_cmd,
             user=params.kafka_user,
             not_if=no_op_test
